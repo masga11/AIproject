@@ -7,8 +7,8 @@ const EXAMPLE_TOPICS = [
   'Социальные сети приносят больше вреда, чем пользы',
 ]
 
-const HISTORY_KEY = 'debate-history'
-const MAX_HISTORY = 20
+const HISTORY_KEY = 'debate-history-local'
+const MAX_HISTORY = 10
 
 function loadHistory() {
   try {
@@ -24,6 +24,28 @@ function saveHistory(entry) {
   const next = [entry, ...prev].slice(0, MAX_HISTORY)
   localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
   return next
+}
+
+// Загрузка истории из глобальной памяти
+async function loadGlobalHistory() {
+  try {
+    const res = await fetch('/api/memory/history?limit=50')
+    const data = await res.json()
+    return data.debates || []
+  } catch {
+    return []
+  }
+}
+
+// Загрузка полного дебата из глобальной памяти
+async function loadGlobalDebate(id) {
+  try {
+    const res = await fetch(`/api/memory/debate/${id}`)
+    const data = await res.json()
+    return data.debate || null
+  } catch {
+    return null
+  }
 }
 
 function formatDate(iso) {
@@ -48,6 +70,8 @@ function App() {
   const [viewingHistoryId, setViewingHistoryId] = useState(null)
   const [model, setModel] = useState('')
   const [modelOptions, setModelOptions] = useState([])
+  const [memoryStats, setMemoryStats] = useState(null)
+  const [globalHistory, setGlobalHistory] = useState([])
 
   const abortRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -65,6 +89,15 @@ function App() {
         }
       })
       .catch(() => {})
+    
+    // Загрузка статистики глобальной памяти
+    fetch('/api/memory/stats')
+      .then((res) => res.json())
+      .then((data) => setMemoryStats(data.stats))
+      .catch(() => {})
+    
+    // Загрузка глобальной истории дебатов
+    loadGlobalHistory().then(setGlobalHistory)
   }, [])
 
   useEffect(() => {
@@ -239,14 +272,37 @@ function App() {
     }
   }
 
-  function openHistoryItem(item) {
+  async function openHistoryItem(item) {
     setViewingHistoryId(item.id)
     setTopic(item.topic)
     setRounds(item.rounds)
-    setWithJudge(item.withJudge)
+    setWithJudge(item.withJudge !== undefined ? item.withJudge : true)
     if (item.model) setModel(item.model)
-    setMessages(item.messages)
-    setMeta({ topic: item.topic, rounds: item.rounds, withJudge: item.withJudge, model: item.model })
+    
+    // Пытаемся загрузить из глобальной памяти сначала
+    const globalDebate = await loadGlobalDebate(item.id)
+    if (globalDebate && globalDebate.messages) {
+      const formattedMessages = globalDebate.messages.map((msg, idx) => ({
+        id: `${msg.agentName}-r${msg.round}-${idx}`,
+        agent: msg.agentName,
+        role: msg.agentRole,
+        color: msg.agentRole === 'Философ' || msg.agentName === 'Philosopher' ? '#8b5cf6' : '#f97316',
+        round: msg.round,
+        isJudge: false,
+        message: msg.content,
+      }))
+      setMessages(formattedMessages)
+      setMeta({ 
+        topic: globalDebate.topic, 
+        rounds: globalDebate.rounds, 
+        withJudge: !!globalDebate.winner, 
+        model: globalDebate.model 
+      })
+    } else if (item.messages) {
+      setMessages(item.messages)
+      setMeta({ topic: item.topic, rounds: item.rounds, withJudge: item.withJudge, model: item.model })
+    }
+    
     setError(null)
     setCurrentRound(0)
   }
@@ -266,6 +322,13 @@ function App() {
           <p className="subtitle">
             Два агента спорят в несколько раундов, судья подводит итог.
           </p>
+          {memoryStats && (
+            <p className="memory-stats">
+              🧠 Глобальная память: <strong>{memoryStats.totalDebates}</strong> дебатов,{' '}
+              <strong>{memoryStats.totalMessages}</strong> реплик,{' '}
+              <strong>{memoryStats.totalKnowledge}</strong> знаний
+            </p>
+          )}
         </div>
       </header>
 
@@ -417,7 +480,7 @@ function App() {
       {history.length > 0 && (
         <section className="history panel">
           <div className="history-head">
-            <h2>История споров</h2>
+            <h2>Локальная история</h2>
             <button type="button" className="link-btn" onClick={clearHistory}>
               Очистить
             </button>
@@ -434,6 +497,31 @@ function App() {
                 <span>
                   {formatDate(item.createdAt)} · {item.messages.length} реплик
                   {item.status === 'stopped' ? ' · прерван' : ''}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {globalHistory.length > 0 && (
+        <section className="history panel">
+          <div className="history-head">
+            <h2>🌍 Глобальная память</h2>
+            <span className="memory-badge">{globalHistory.length} дебатов</span>
+          </div>
+          <div className="history-list">
+            {globalHistory.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`history-item ${viewingHistoryId === item.id ? 'active' : ''}`}
+                onClick={() => openHistoryItem(item)}
+              >
+                <strong>{item.topic}</strong>
+                <span>
+                  {new Date(item.createdAt).toLocaleDateString('ru-RU')} · {item.provider}/{item.model}
+                  {item.winner ? ` · Победитель: ${item.winner}` : ''}
                 </span>
               </button>
             ))}

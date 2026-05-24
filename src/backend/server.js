@@ -10,8 +10,10 @@ import {
   createDebateSession,
   streamAgentReply,
   streamJudgeVerdict,
+  extractKnowledgeFragments,
 } from './debateEngine.js'
 import { getAgentsForProvider, getJudgeForProvider, getModelPresets, resolveProvider } from './llmConfig.js'
+import { globalMemory } from './memory/globalMemory.js'
 
 const PORT = process.env.PORT || 3002
 const app = express()
@@ -85,6 +87,44 @@ app.get('/agents', (_req, res) => {
   })
 })
 
+// Эндпоинт для получения статистики глобальной памяти
+app.get('/memory/stats', async (_req, res) => {
+  await globalMemory.init()
+  res.json({
+    stats: globalMemory.getStats(),
+  })
+})
+
+// Эндпоинт для поиска релевантного контекста
+app.get('/memory/search', async (req, res) => {
+  const topic = (req.query.topic || '').trim()
+  if (!topic) {
+    return res.status(400).json({ error: 'Укажите тему для поиска' })
+  }
+  
+  await globalMemory.init()
+  const context = globalMemory.findRelevantContext(topic)
+  res.json(context)
+})
+
+// Эндпоинт для получения истории дебатов из глобальной памяти
+app.get('/memory/history', async (req, res) => {
+  const limit = parseInt(req.query.limit || '50', 10)
+  await globalMemory.init()
+  const debates = globalMemory.getAllDebates(limit)
+  res.json({ debates })
+})
+
+// Эндпоинт для получения полного дебата по ID
+app.get('/memory/debate/:id', async (req, res) => {
+  await globalMemory.init()
+  const debate = globalMemory.getDebateWithMessages(req.params.id)
+  if (!debate) {
+    return res.status(404).json({ error: 'Дебат не найден' })
+  }
+  res.json({ debate })
+})
+
 app.get('/autonomous-debate-stream', async (req, res) => {
   const topic = (req.query.topic || '').trim()
   const rounds = clampRounds(req.query.rounds)
@@ -116,7 +156,12 @@ app.get('/autonomous-debate-stream', async (req, res) => {
     return
   }
 
+  // Инициализация глобальной памяти и поиск контекста
+  await globalMemory.init()
+  const globalContext = globalMemory.formatContextForPrompt(topic)
+  
   const session = createDebateSession(topic)
+  session.debateId = globalMemory.saveDebate(topic, provider.name, agents[0].model, rounds)
 
   sendEvent(res, { type: 'debate_start', topic, rounds, withJudge, model: agents[0].model, agents })
 
@@ -150,6 +195,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
               sendEvent(res, { type: 'token', id: messageId, text: token })
             }
           },
+          globalContext,
         )
 
         if (aborted) break
@@ -169,6 +215,9 @@ app.get('/autonomous-debate-stream', async (req, res) => {
           round,
           text: answer,
         })
+        
+        // Сохраняем сообщение в глобальную память
+        globalMemory.saveMessage(session.debateId, agent.name, agent.role, round, answer)
 
         sendEvent(res, { type: 'agent_end', id: messageId })
       }
@@ -217,6 +266,24 @@ app.get('/autonomous-debate-stream', async (req, res) => {
 
       if (verdict) {
         sendEvent(res, { type: 'agent_end', id: messageId, verdict })
+        
+        // Обновляем победителя и извлекаем знания
+        globalMemory.updateWinner(session.debateId, verdict.includes('Philosopher') ? 'Philosopher' : 'Skeptic')
+        
+        // Извлекаем знания из дебата (асинхронно, не блокируя поток)
+        extractKnowledgeFragments(client, judge.model, session.topic, 
+          session.memory.recall().map(e => `[${e.agent} (${e.role}), Раунд ${e.round}]: ${e.text}`).join('\n\n'),
+          verdict
+        ).then(fragments => {
+          if (fragments.length > 0) {
+            for (const fragment of fragments) {
+              globalMemory.saveKnowledgeFragment(session.debateId, fragment.type, fragment.content, session.topic, fragment.relevance)
+            }
+            console.log(`[GlobalMemory] Извлечено ${fragments.length} фрагментов знаний`)
+          }
+        }).catch(err => {
+          console.error('[GlobalMemory] Ошибка при извлечении знаний:', err)
+        })
       }
     }
 
