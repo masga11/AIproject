@@ -505,3 +505,17 @@ body {
   background: transparent;
   cursor: pointer;
 }
+
+/* Advanced settings toggle */
+.advanced-settings-toggle {
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.agent-specific-settings {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(31, 41, 55, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}

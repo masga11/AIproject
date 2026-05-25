@@ -167,12 +167,36 @@ app.get('/autonomous-debate-stream', async (req, res) => {
   const model = (req.query.model || '').trim()
   const agent1Id = (req.query.agent1 || 'philosopher').trim()
   const agent2Id = (req.query.agent2 || 'skeptic').trim()
+  
+  // Индивидуальные настройки для агентов
+  const agent1Model = (req.query.agent1Model || model || '').trim()
+  const agent2Model = (req.query.agent2Model || model || '').trim()
+  const agent1Temp = parseFloat(req.query.agent1Temp || '0.8')
+  const agent2Temp = parseFloat(req.query.agent2Temp || '0.8')
+  const agent1Provider = (req.query.agent1Provider || provider.name).trim()
+  const agent2Provider = (req.query.agent2Provider || provider.name).trim()
 
   // Получаем пользовательских агентов
   await customAgentManager.init()
   const customAgents = customAgentManager.getAllActiveAgents()
   
-  const agents = getAgentsForProviderWithCustom(provider.name, model, [agent1Id, agent2Id], customAgents)
+  // Создаём конфигурации агентов с индивидуальными настройками
+  const buildAgentConfig = (agentId, customModel, customTemp, customProvider) => {
+    const baseAgent = getAgentByIdWithCustom(agentId, customAgents)
+    const effectiveModel = customModel || model || resolveModel(customProvider, null)
+    const effectiveProvider = customProvider || provider.name
+    
+    return {
+      ...baseAgent,
+      model: effectiveModel,
+      temperature: customTemp,
+      provider: effectiveProvider,
+    }
+  }
+  
+  const agent1Config = buildAgentConfig(agent1Id, agent1Model, agent1Temp, agent1Provider)
+  const agent2Config = buildAgentConfig(agent2Id, agent2Model, agent2Temp, agent2Provider)
+  const agents = [agent1Config, agent2Config]
   const judge = getJudgeForProvider(provider.name, model)
 
   res.setHeader('Content-Type', 'text/event-stream')

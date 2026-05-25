@@ -80,6 +80,13 @@ function App() {
   const [analytics, setAnalytics] = useState(null)
   const [showAnalytics, setShowAnalytics] = useState(false)
   
+  // Настройки моделей для каждого агента отдельно
+  const [agent1Model, setAgent1Model] = useState('')
+  const [agent2Model, setAgent2Model] = useState('')
+  const [agent1Temp, setAgent1Temp] = useState(0.8)
+  const [agent2Temp, setAgent2Temp] = useState(0.8)
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
+  
   // Состояние для управления кастомными агентами
   const [showCustomAgentForm, setShowCustomAgentForm] = useState(false)
   const [editingAgent, setEditingAgent] = useState(null)
@@ -336,6 +343,12 @@ function App() {
       })
 
       if (model) params.set('model', model)
+      
+      // Добавляем индивидуальные настройки агентов
+      if (agent1Model) params.set('agent1Model', agent1Model)
+      if (agent2Model) params.set('agent2Model', agent2Model)
+      if (agent1Temp !== 0.8) params.set('agent1Temp', String(agent1Temp))
+      if (agent2Temp !== 0.8) params.set('agent2Temp', String(agent2Temp))
 
       const response = await fetch(
         `/api/autonomous-debate-stream?${params.toString()}`,
@@ -607,7 +620,7 @@ function App() {
 
           {modelOptions.length > 0 && (
             <label className="setting">
-              <span>Модель</span>
+              <span>Модель (общая)</span>
               <select
                 className="select"
                 value={model}
@@ -624,6 +637,109 @@ function App() {
                 {modelOptions.find((option) => option.id === model)?.hint}
               </span>
             </label>
+          )}
+
+          <div className="advanced-settings-toggle">
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+              disabled={loading}
+            >
+              {showAdvancedSettings ? '▼ Скрыть настройки агентов' : '▶ Настройки агентов (модели, температура)'}
+            </button>
+          </div>
+
+          {showAdvancedSettings && modelOptions.length > 0 && (
+            <div className="agent-specific-settings">
+              <h4 style={{ fontSize: '14px', marginBottom: '12px', color: '#9ca3af' }}>Индивидуальные настройки агентов</h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                {/* Настройки Агента 1 */}
+                <div style={{ padding: '12px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px' }}>
+                  <h5 style={{ margin: '0 0 12px 0', color: availableAgents.find(a => a.id === agent1)?.color || '#8b5cf6' }}>
+                    {availableAgents.find(a => a.id === agent1)?.name || 'Агент 1'}
+                  </h5>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Модель</span>
+                    <select
+                      className="select"
+                      value={agent1Model}
+                      disabled={loading}
+                      onChange={(e) => setAgent1Model(e.target.value)}
+                      style={{ fontSize: '12px', padding: '4px' }}
+                    >
+                      <option value="">Как общая ({modelOptions.find(o => o.id === model)?.label})</option>
+                      {modelOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Температура: {agent1Temp.toFixed(1)}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1.5"
+                      step="0.1"
+                      value={agent1Temp}
+                      disabled={loading}
+                      onChange={(e) => setAgent1Temp(parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                      {agent1Temp < 0.5 ? 'Более точный' : agent1Temp > 1 ? 'Очень креативный' : 'Сбалансированный'}
+                    </span>
+                  </label>
+                </div>
+
+                {/* Настройки Агента 2 */}
+                <div style={{ padding: '12px', background: 'rgba(249, 115, 22, 0.1)', borderRadius: '8px' }}>
+                  <h5 style={{ margin: '0 0 12px 0', color: availableAgents.find(a => a.id === agent2)?.color || '#f97316' }}>
+                    {availableAgents.find(a => a.id === agent2)?.name || 'Агент 2'}
+                  </h5>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Модель</span>
+                    <select
+                      className="select"
+                      value={agent2Model}
+                      disabled={loading}
+                      onChange={(e) => setAgent2Model(e.target.value)}
+                      style={{ fontSize: '12px', padding: '4px' }}
+                    >
+                      <option value="">Как общая ({modelOptions.find(o => o.id === model)?.label})</option>
+                      {modelOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Температура: {agent2Temp.toFixed(1)}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1.5"
+                      step="0.1"
+                      value={agent2Temp}
+                      disabled={loading}
+                      onChange={(e) => setAgent2Temp(parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                      {agent2Temp < 0.5 ? 'Более точный' : agent2Temp > 1 ? 'Очень креативный' : 'Сбалансированный'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
           )}
 
           <label className="setting">

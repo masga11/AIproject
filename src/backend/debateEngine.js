@@ -128,12 +128,12 @@ ${transcript}
   ]
 }
 
-async function streamCompletion(client, { model, messages, onToken, maxTokens = 800 }) {
+async function streamCompletion(client, { model, messages, onToken, maxTokens = 800, temperature = 0.8 }) {
   const stream = await client.chat.completions.create({
     model,
     stream: true,
     max_tokens: maxTokens,
-    temperature: 0.8,
+    temperature,
     messages,
   })
 
@@ -156,6 +156,7 @@ export async function streamAgentReply(client, agent, topic, memory, onToken, gl
     model: agent.model,
     messages: buildMessages(agent, topic, memory, globalContext),
     onToken,
+    temperature: agent.temperature !== undefined ? agent.temperature : 0.8,
   })
 }
 
