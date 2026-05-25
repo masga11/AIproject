@@ -1,4 +1,5 @@
 import { MemoryManager } from './memory/memoryManager.js'
+import { globalMemory } from './memory/globalMemory.js'
 
 export const DEFAULT_ROUNDS = 3
 export const MIN_ROUNDS = 1
@@ -15,6 +16,50 @@ export function createDebateSession(topic) {
     topic: topic.trim(),
     memory: new MemoryManager(),
     round: 0,
+    debateId: null,
+  }
+}
+
+// Извлечение знаний из дебата с помощью LLM
+export async function extractKnowledgeFragments(client, model, topic, transcript, verdict) {
+  const prompt = `Ты система извлечения знаний из дебатов. Проанализируй транскрипт и вердикт судьи.
+Извлеки 3-5 ключевых фактов, аргументов или инсайтов, которые могут быть полезны в будущих дебатах.
+
+Тема: «${topic}»
+
+Транскрипт:
+${transcript}
+
+Вердикт судьи:
+${verdict}
+
+Верни JSON массив объектов:
+[
+  {"type": "fact|argument|counterargument|insight", "content": "текст фрагмента", "relevance": 0.8},
+  ...
+]
+
+Отвечай ТОЛЬКО JSON массивом без дополнительного текста.`
+
+  try {
+    const response = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: 'Ты JSON API. Отвечай только валидным JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
+    })
+
+    const text = response.choices?.[0]?.message?.content || '[]'
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    const jsonStr = jsonMatch ? jsonMatch[0] : '[]'
+    
+    return JSON.parse(jsonStr)
+  } catch (err) {
+    console.error('[GlobalMemory] Ошибка извлечения знаний:', err.message)
+    return []
   }
 }
 
@@ -30,13 +75,20 @@ export function buildPrompt(agent, topic, hasHistory) {
   return `${base}\n\nПродолжай дебаты: ответь на аргументы оппонентов и развивай свою позицию.`
 }
 
-export function buildMessages(agent, topic, memory) {
+export function buildMessages(agent, topic, memory, globalContext = '') {
   const history = memory.toHistory()
+
+  const systemContent = buildPrompt(agent, topic, history.length > 0)
+  
+  // Добавляем глобальный контекст из прошлых дебатов
+  const fullSystemContent = globalContext 
+    ? `${systemContent}\n\n${globalContext}`
+    : systemContent
 
   return [
     {
       role: 'system',
-      content: buildPrompt(agent, topic, history.length > 0),
+      content: fullSystemContent,
     },
     ...history,
     {
@@ -99,10 +151,10 @@ async function streamCompletion(client, { model, messages, onToken, maxTokens = 
   return fullText.trim()
 }
 
-export async function streamAgentReply(client, agent, topic, memory, onToken) {
+export async function streamAgentReply(client, agent, topic, memory, onToken, globalContext = '') {
   return streamCompletion(client, {
     model: agent.model,
-    messages: buildMessages(agent, topic, memory),
+    messages: buildMessages(agent, topic, memory, globalContext),
     onToken,
   })
 }

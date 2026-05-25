@@ -10,8 +10,11 @@ import {
   createDebateSession,
   streamAgentReply,
   streamJudgeVerdict,
+  extractKnowledgeFragments,
 } from './debateEngine.js'
-import { getAgentsForProvider, getJudgeForProvider, getModelPresets, resolveProvider } from './llmConfig.js'
+import { getAgentsForProvider, getJudgeForProvider, getModelPresets, getAvailableAgents, resolveProvider, getAgentsForProviderWithCustom } from './llmConfig.js'
+import { globalMemory } from './memory/globalMemory.js'
+import { customAgentManager } from './memory/customAgentManager.js'
 
 const PORT = process.env.PORT || 3002
 const app = express()
@@ -73,9 +76,14 @@ app.get('/health', (_req, res) => {
   })
 })
 
-app.get('/agents', (_req, res) => {
+app.get('/agents', async (_req, res) => {
+  await customAgentManager.init()
+  const customAgents = customAgentManager.getAllActiveAgents()
+  
   res.json({
     agents: defaultAgents,
+    allAgents: getAvailableAgents(),
+    customAgents,
     rounds: DEFAULT_ROUNDS,
     minRounds: MIN_ROUNDS,
     maxRounds: MAX_ROUNDS,
@@ -85,13 +93,86 @@ app.get('/agents', (_req, res) => {
   })
 })
 
+// Эндпоинты для управления пользовательскими агентами
+app.get('/custom-agents', async (_req, res) => {
+  await customAgentManager.init()
+  const agents = customAgentManager.getAllActiveAgents()
+  res.json({ agents })
+})
+
+app.post('/custom-agents', async (req, res) => {
+  await customAgentManager.init()
+  
+  const { name, role, systemPrompt, color } = req.body
+  
+  if (!name?.trim() || !role?.trim() || !systemPrompt?.trim()) {
+    return res.status(400).json({ error: 'Имя, роль и системный промт обязательны' })
+  }
+  
+  try {
+    const agent = customAgentManager.createAgent(name, role, systemPrompt, color || '#8b5cf6')
+    res.json({ agent })
+  } catch (err) {
+    console.error('Ошибка создания агента:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.put('/custom-agents/:id', async (req, res) => {
+  await customAgentManager.init()
+  
+  const { id } = req.params
+  const { name, role, systemPrompt, color } = req.body
+  
+  if (!name?.trim() || !role?.trim() || !systemPrompt?.trim()) {
+    return res.status(400).json({ error: 'Имя, роль и системный промт обязательны' })
+  }
+  
+  try {
+    const agent = customAgentManager.updateAgent(id, name, role, systemPrompt, color)
+    if (!agent) {
+      return res.status(404).json({ error: 'Агент не найден' })
+    }
+    res.json({ agent })
+  } catch (err) {
+    console.error('Ошибка обновления агента:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/custom-agents/:id', async (req, res) => {
+  await customAgentManager.init()
+  
+  const { id } = req.params
+  
+  try {
+    customAgentManager.deleteAgent(id)
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Ошибка удаления агента:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.get('/custom-agents/stats', async (_req, res) => {
+  await customAgentManager.init()
+  res.json({ stats: customAgentManager.getStats() })
+})
+
+// Эндпоинт для запуска дебатов с произвольными агентами
 app.get('/autonomous-debate-stream', async (req, res) => {
   const topic = (req.query.topic || '').trim()
   const rounds = clampRounds(req.query.rounds)
   const withJudge = parseWithJudge(req.query.withJudge ?? '1')
   const model = (req.query.model || '').trim()
+  const agent1Id = (req.query.agent1 || 'philosopher').trim()
+  const agent2Id = (req.query.agent2 || 'skeptic').trim()
 
-  const agents = getAgentsForProvider(provider.name, model)
+  // Получаем пользовательских агентов
+  await customAgentManager.init()
+  const customAgents = customAgentManager.getAllActiveAgents()
+  
+  const agents = getAgentsForProviderWithCustom(provider.name, model, [agent1Id, agent2Id], customAgents)
   const judge = getJudgeForProvider(provider.name, model)
 
   res.setHeader('Content-Type', 'text/event-stream')
@@ -116,7 +197,12 @@ app.get('/autonomous-debate-stream', async (req, res) => {
     return
   }
 
+  // Инициализация глобальной памяти и поиск контекста
+  await globalMemory.init()
+  const globalContext = globalMemory.formatContextForPrompt(topic)
+  
   const session = createDebateSession(topic)
+  session.debateId = globalMemory.saveDebate(topic, provider.name, agents[0].model, rounds)
 
   sendEvent(res, { type: 'debate_start', topic, rounds, withJudge, model: agents[0].model, agents })
 
@@ -150,6 +236,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
               sendEvent(res, { type: 'token', id: messageId, text: token })
             }
           },
+          globalContext,
         )
 
         if (aborted) break
@@ -169,6 +256,9 @@ app.get('/autonomous-debate-stream', async (req, res) => {
           round,
           text: answer,
         })
+        
+        // Сохраняем сообщение в глобальную память
+        globalMemory.saveMessage(session.debateId, agent.name, agent.role, round, answer)
 
         sendEvent(res, { type: 'agent_end', id: messageId })
       }
@@ -217,6 +307,26 @@ app.get('/autonomous-debate-stream', async (req, res) => {
 
       if (verdict) {
         sendEvent(res, { type: 'agent_end', id: messageId, verdict })
+        
+        // Обновляем победителя и извлекаем знания
+        const winnerMatch = verdict.match(/Победитель:\s*(\w+)/i) || verdict.match(/winner:\s*(\w+)/i)
+        const winner = winnerMatch ? winnerMatch[1] : (verdict.includes('Philosopher') ? 'Philosopher' : 'Skeptic')
+        globalMemory.updateWinner(session.debateId, winner)
+        
+        // Извлекаем знания из дебата (асинхронно, не блокируя поток)
+        extractKnowledgeFragments(client, judge.model, session.topic, 
+          session.memory.recall().map(e => `[${e.agent} (${e.role}), Раунд ${e.round}]: ${e.text}`).join('\n\n'),
+          verdict
+        ).then(fragments => {
+          if (fragments.length > 0) {
+            for (const fragment of fragments) {
+              globalMemory.saveKnowledgeFragment(session.debateId, fragment.type, fragment.content, session.topic, fragment.relevance)
+            }
+            console.log(`[GlobalMemory] Извлечено ${fragments.length} фрагментов знаний`)
+          }
+        }).catch(err => {
+          console.error('[GlobalMemory] Ошибка при извлечении знаний:', err)
+        })
       }
     }
 
@@ -230,6 +340,44 @@ app.get('/autonomous-debate-stream', async (req, res) => {
   }
 
   res.end()
+})
+
+// Эндпоинт для получения статистики глобальной памяти
+app.get('/memory/stats', async (_req, res) => {
+  await globalMemory.init()
+  res.json({
+    stats: globalMemory.getStats(),
+  })
+})
+
+// Эндпоинт для поиска релевантного контекста
+app.get('/memory/search', async (req, res) => {
+  const topic = (req.query.topic || '').trim()
+  if (!topic) {
+    return res.status(400).json({ error: 'Укажите тему для поиска' })
+  }
+  
+  await globalMemory.init()
+  const context = globalMemory.findRelevantContext(topic)
+  res.json(context)
+})
+
+// Эндпоинт для получения истории дебатов из глобальной памяти
+app.get('/memory/history', async (req, res) => {
+  const limit = parseInt(req.query.limit || '50', 10)
+  await globalMemory.init()
+  const debates = globalMemory.getAllDebates(limit)
+  res.json({ debates })
+})
+
+// Эндпоинт для получения полного дебата по ID
+app.get('/memory/debate/:id', async (req, res) => {
+  await globalMemory.init()
+  const debate = globalMemory.getDebateWithMessages(req.params.id)
+  if (!debate) {
+    return res.status(404).json({ error: 'Дебат не найден' })
+  }
+  res.json({ debate })
 })
 
 app.listen(PORT, () => {
