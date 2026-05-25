@@ -85,6 +85,9 @@ function App() {
   const [agent2Model, setAgent2Model] = useState('')
   const [agent1Temp, setAgent1Temp] = useState(0.8)
   const [agent2Temp, setAgent2Temp] = useState(0.8)
+  const [agent1Provider, setAgent1Provider] = useState('')
+  const [agent2Provider, setAgent2Provider] = useState('')
+  const [provider, setProvider] = useState({ name: 'ollama' })
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   
   // Состояние для управления кастомными агентами
@@ -146,6 +149,9 @@ function App() {
         }
         if (data.customAgents?.length) {
           setCustomAgents(data.customAgents)
+        }
+        if (data.provider) {
+          setProvider({ name: data.provider })
         }
       })
       .catch(() => {})
@@ -379,6 +385,8 @@ function App() {
       if (agent2Model) params.set('agent2Model', agent2Model)
       if (agent1Temp !== 0.8) params.set('agent1Temp', String(agent1Temp))
       if (agent2Temp !== 0.8) params.set('agent2Temp', String(agent2Temp))
+      if (agent1Provider) params.set('agent1Provider', agent1Provider)
+      if (agent2Provider) params.set('agent2Provider', agent2Provider)
 
       const response = await fetch(
         `/api/autonomous-debate-stream?${params.toString()}`,
@@ -587,8 +595,12 @@ function App() {
                   onChange={(e) => setAgent1(e.target.value)}
                 >
                   {availableAgents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.name} — {agent.role}
+                    <option 
+                      key={agent.id} 
+                      value={agent.id}
+                      style={{ color: agent.isCustom ? agent.color : undefined }}
+                    >
+                      {agent.isCustom ? '🎨 ' : ''}{agent.name} — {agent.role}
                     </option>
                   ))}
                 </select>
@@ -603,44 +615,12 @@ function App() {
                   onChange={(e) => setAgent2(e.target.value)}
                 >
                   {availableAgents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.name} — {agent.role}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          )}
-
-          {customAgents.length > 0 && (
-            <>
-              <label className="setting">
-                <span>Агент 1 (кастомные)</span>
-                <select
-                  className="select"
-                  value={agent1}
-                  disabled={loading}
-                  onChange={(e) => setAgent1(e.target.value)}
-                >
-                  {customAgents.map((agent) => (
-                    <option key={agent.id} value={agent.id} style={{ color: agent.color }}>
-                      🎨 {agent.name} — {agent.role}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="setting">
-                <span>Агент 2 (кастомные)</span>
-                <select
-                  className="select"
-                  value={agent2}
-                  disabled={loading}
-                  onChange={(e) => setAgent2(e.target.value)}
-                >
-                  {customAgents.map((agent) => (
-                    <option key={agent.id} value={agent.id} style={{ color: agent.color }}>
-                      🎨 {agent.name} — {agent.role}
+                    <option 
+                      key={agent.id} 
+                      value={agent.id}
+                      style={{ color: agent.isCustom ? agent.color : undefined }}
+                    >
+                      {agent.isCustom ? '🎨 ' : ''}{agent.name} — {agent.role}
                     </option>
                   ))}
                 </select>
@@ -692,6 +672,21 @@ function App() {
                   </h5>
                   
                   <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Провайдер</span>
+                    <select
+                      className="select"
+                      value={agent1Provider}
+                      disabled={loading}
+                      onChange={(e) => setAgent1Provider(e.target.value)}
+                      style={{ fontSize: '12px', padding: '4px' }}
+                    >
+                      <option value="">Как общий ({provider.name === 'groq' ? 'Groq' : 'Ollama'})</option>
+                      <option value="ollama">Ollama (локально)</option>
+                      <option value="groq">Groq (облако)</option>
+                    </select>
+                  </label>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
                     <span style={{ fontSize: '12px' }}>Модель</span>
                     <select
                       className="select"
@@ -732,6 +727,21 @@ function App() {
                   <h5 style={{ margin: '0 0 12px 0', color: availableAgents.find(a => a.id === agent2)?.color || '#f97316' }}>
                     {availableAgents.find(a => a.id === agent2)?.name || 'Агент 2'}
                   </h5>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Провайдер</span>
+                    <select
+                      className="select"
+                      value={agent2Provider}
+                      disabled={loading}
+                      onChange={(e) => setAgent2Provider(e.target.value)}
+                      style={{ fontSize: '12px', padding: '4px' }}
+                    >
+                      <option value="">Как общий ({provider.name === 'groq' ? 'Groq' : 'Ollama'})</option>
+                      <option value="ollama">Ollama (локально)</option>
+                      <option value="groq">Groq (облако)</option>
+                    </select>
+                  </label>
                   
                   <label className="setting" style={{ marginBottom: '8px' }}>
                     <span style={{ fontSize: '12px' }}>Модель</span>

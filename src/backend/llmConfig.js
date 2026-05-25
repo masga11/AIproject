@@ -157,8 +157,10 @@ export function getAgentById(id) {
   return AGENT_PRESETS.find(a => a.id === id) || AGENT_PRESETS[0]
 }
 
-export function getAvailableAgents() {
-  return AGENT_PRESETS
+export function getAvailableAgents(customAgents = []) {
+  const builtIn = AGENT_PRESETS.map(agent => ({ ...agent, isCustom: false }))
+  const custom = (customAgents || []).map(agent => ({ ...agent, isCustom: true }))
+  return [...builtIn, ...custom]
 }
 
 export function getJudgeForProvider(providerName, modelOverride) {
@@ -183,10 +185,9 @@ export function getAgentsForProvider(providerName, modelOverride, agentIds = ['p
   })
 }
 
-// Объединяем встроенных и пользовательских агентов
+// Объединяем встроенных и пользовательских агентов (устаревшая, используем getAvailableAgents)
 export function getAllAgentsWithCustoms(customAgents = []) {
-  const builtIn = getAvailableAgents()
-  return [...builtIn, ...customAgents]
+  return getAvailableAgents(customAgents)
 }
 
 // Получение агента с учётом пользовательских
