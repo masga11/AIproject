@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 const EXAMPLE_TOPICS = [
   'Искусственный интеллект заменит программистов к 2030 году',
@@ -76,6 +77,8 @@ function App() {
   const [customAgents, setCustomAgents] = useState([])
   const [agent1, setAgent1] = useState('philosopher')
   const [agent2, setAgent2] = useState('skeptic')
+  const [analytics, setAnalytics] = useState(null)
+  const [showAnalytics, setShowAnalytics] = useState(false)
   
   // Состояние для управления кастомными агентами
   const [showCustomAgentForm, setShowCustomAgentForm] = useState(false)
@@ -123,6 +126,12 @@ function App() {
     fetch('/api/custom-agents/stats')
       .then((res) => res.json())
       .then((data) => setCustomAgentStats(data.stats))
+      .catch(() => {})
+    
+    // Загрузка расширенной аналитики
+    fetch('/api/memory/analytics')
+      .then((res) => res.json())
+      .then((data) => setAnalytics(data.analytics))
       .catch(() => {})
   }, [])
 

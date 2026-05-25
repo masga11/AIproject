@@ -382,6 +382,14 @@ app.get('/memory/debate/:id', async (req, res) => {
   res.json({ debate })
 })
 
+// Эндпоинт для получения расширенной статистики
+app.get('/memory/analytics', async (_req, res) => {
+  await globalMemory.init()
+  res.json({
+    analytics: globalMemory.getAnalytics(),
+  })
+})
+
 app.listen(PORT, () => {
   console.log(`Arena backend started on ${PORT} (${provider.label}, ${provider.model})`)
   if (!client) {
