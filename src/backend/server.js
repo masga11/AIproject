@@ -12,7 +12,7 @@ import {
   streamJudgeVerdict,
   extractKnowledgeFragments,
 } from './debateEngine.js'
-import { getAgentsForProvider, getJudgeForProvider, getModelPresets, getAvailableAgents, resolveProvider, getAgentsForProviderWithCustom } from './llmConfig.js'
+import { getAgentsForProvider, getJudgeForProvider, getModelPresets, getAvailableAgents, resolveProvider, getAgentsForProviderWithCustom, getAgentByIdWithCustom } from './llmConfig.js'
 import { globalMemory } from './memory/globalMemory.js'
 import { customAgentManager } from './memory/customAgentManager.js'
 

@@ -100,6 +100,36 @@ function App() {
   const abortRef = useRef(null)
   const messagesEndRef = useRef(null)
   const shouldAutoScrollRef = useRef(true)
+  const speechSynthRef = useRef<SpeechSynthesis | null>(null)
+
+  // Инициализация TTS (Text-to-Speech)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      speechSynthRef.current = window.speechSynthesis
+    }
+  }, [])
+
+  // Функция озвучки текста
+  function speakText(text: string) {
+    if (!speechSynthRef.current || !text) return
+    
+    // Останавливаем предыдущее воспроизведение
+    speechSynthRef.current.cancel()
+    
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'ru-RU'
+    utterance.rate = 1.0
+    utterance.pitch = 1.0
+    
+    // Пытаемся найти русский голос
+    const voices = speechSynthRef.current.getVoices()
+    const ruVoice = voices.find(v => v.lang.startsWith('ru'))
+    if (ruVoice) {
+      utterance.voice = ruVoice
+    }
+    
+    speechSynthRef.current.speak(utterance)
+  }
 
   useEffect(() => {
     setHistory(loadHistory())
@@ -968,6 +998,14 @@ function App() {
               <span className="round-badge">
                 {item.isJudge ? 'Вердикт' : `Раунд ${item.round}`}
               </span>
+              <button
+                type="button"
+                className="tts-btn"
+                onClick={() => speakText(item.message)}
+                title="Озвучить реплику"
+              >
+                🔊
+              </button>
             </div>
             <p className="message-body">
               {item.message || (loading ? 'Печатает…' : '')}
