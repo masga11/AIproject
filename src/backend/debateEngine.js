@@ -100,7 +100,7 @@ export function buildMessages(agent, topic, memory, globalContext = '') {
   ]
 }
 
-export function buildJudgeMessages(topic, memory) {
+export function buildJudgeMessages(topic, memory, agent1Name, agent2Name) {
   const entries = memory.recall()
 
   const transcript = entries
@@ -122,7 +122,7 @@ ${transcript}
 
 Подведи итог спора:
 1. Кратко перескажи ключевые аргументы каждой стороны.
-2. Назови победителя: Philosopher или Skeptic.
+2. Назови победителя: ${agent1Name} или ${agent2Name}.
 3. Объясни решение в 2–3 абзацах.`,
     },
   ]
@@ -159,10 +159,10 @@ export async function streamAgentReply(client, agent, topic, memory, onToken, gl
   })
 }
 
-export async function streamJudgeVerdict(client, judge, topic, memory, onToken) {
+export async function streamJudgeVerdict(client, judge, topic, memory, onToken, agent1Name, agent2Name) {
   return streamCompletion(client, {
     model: judge.model,
-    messages: buildJudgeMessages(topic, memory),
+    messages: buildJudgeMessages(topic, memory, agent1Name, agent2Name),
     onToken,
     maxTokens: 600,
   })

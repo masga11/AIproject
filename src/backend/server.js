@@ -297,6 +297,8 @@ app.get('/autonomous-debate-stream', async (req, res) => {
             sendEvent(res, { type: 'token', id: messageId, text: token })
           }
         },
+        agents[0].name,
+        agents[1].name,
       )
 
       if (aborted) {
