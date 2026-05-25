@@ -1,13 +1,5 @@
-```javascript
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.class
+```
+# Build artifacts
 dist/
 build/
 target/
@@ -16,15 +8,26 @@ target/
 node_modules/
 venv/
 .venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.gradle/
+
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
+
+# Environment
 .env
 .env.local
 *.env.*
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
 
 # Editors
 .vscode/
@@ -32,22 +35,21 @@ venv/
 *.swp
 *.swo
 
-# System files
+# System
 .DS_Store
 Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
 
 # Coverage
 coverage/
 htmlcov/
 .coverage
 
-# Python specific
-.mypy_cache/
-.pytest_cache/
-
-# Java/Gradle
-.gradle/
-*.class
+# Database (if temporary/build-related)
+*.db
 
 # Compressed files
 *.zip

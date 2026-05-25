@@ -85,6 +85,7 @@ function App() {
   const [newAgentPrompt, setNewAgentPrompt] = useState('')
   const [newAgentColor, setNewAgentColor] = useState('#8b5cf6')
   const [customAgentStats, setCustomAgentStats] = useState(null)
+  const [exportFormat, setExportFormat] = useState<'markdown' | 'json'>('markdown')
 
   const abortRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -222,6 +223,61 @@ function App() {
     setNewAgentPrompt('')
     setNewAgentColor('#8b5cf6')
     setShowCustomAgentForm(false)
+  }
+
+  // Функция экспорта дебатов
+  function exportDebate(format: 'markdown' | 'json' = 'markdown') {
+    if (messages.length === 0 || !meta) return
+    
+    let content = ''
+    const filename = `debate-${Date.now()}`
+    
+    if (format === 'json') {
+      content = JSON.stringify({
+        topic: meta.topic,
+        date: new Date().toISOString(),
+        rounds: meta.rounds,
+        model: meta.model,
+        messages: messages.map(m => ({
+          agent: m.agent,
+          role: m.role,
+          round: m.round,
+          isJudge: m.isJudge,
+          message: m.message
+        }))
+      }, null, 2)
+    } else {
+      // Markdown формат
+      content = `# Дебаты: ${meta.topic}\n\n`
+      content += `**Дата:** ${new Date().toLocaleString('ru-RU')}\n`
+      content += `**Модель:** ${meta.model}\n`
+      content += `**Раундов:** ${meta.rounds}\n\n`
+      content += `---\n\n`
+      
+      for (let i = 1; i <= meta.rounds; i++) {
+        content += `## Раунд ${i}\n\n`
+        const roundMessages = messages.filter(m => m.round === i && !m.isJudge)
+        for (const msg of roundMessages) {
+          content += `### ${msg.agent} (${msg.role})\n\n${msg.message}\n\n`
+        }
+      }
+      
+      const judgeMessage = messages.find(m => m.isJudge)
+      if (judgeMessage) {
+        content += `## Вердикт судьи\n\n${judgeMessage.message}\n`
+      }
+    }
+    
+    // Скачивание файла
+    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}.${format === 'json' ? 'json' : 'md'}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   function persistDebate(status, finalMessages, debateMeta) {
@@ -598,6 +654,29 @@ function App() {
             <button type="button" className="secondary" onClick={stopDebate}>
               Стоп
             </button>
+          )}
+          
+          {!loading && messages.length > 0 && (
+            <button 
+              type="button" 
+              className="secondary" 
+              onClick={() => exportDebate(exportFormat)}
+              title={`Экспорт в ${exportFormat === 'json' ? 'JSON' : 'Markdown'}`}
+            >
+              📥 Экспорт
+            </button>
+          )}
+          
+          {!loading && messages.length > 0 && (
+            <select
+              className="select"
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as 'markdown' | 'json')}
+              style={{ width: 'auto', minWidth: '120px' }}
+            >
+              <option value="markdown">📄 Markdown</option>
+              <option value="json">📋 JSON</option>
+            </select>
           )}
         </div>
 
