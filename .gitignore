@@ -1,17 +1,35 @@
 ```
-# Build artifacts
-dist/
-build/
+# Database files
+*.db
+
 # Dependencies
 node_modules/
+
 # Logs and temp files
 *.log
 *.tmp
+
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
+
 # Editors
 .vscode/
 .idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# OS generated files
+.DS_Store
+Thumbs.db
 ```

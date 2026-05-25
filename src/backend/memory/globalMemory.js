@@ -139,7 +139,7 @@ export class GlobalMemoryManager {
     this.db.run(
       `INSERT INTO messages (id, debate_id, agent_name, agent_role, round, content, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, debateId, agentName, agentRole, round, content]
+      [id, debateId, agentName, agentRole, round, content, createdAt]
     )
     
     // Сохраняем на диск периодически (каждые 10 сообщений)
