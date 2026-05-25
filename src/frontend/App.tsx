@@ -72,6 +72,19 @@ function App() {
   const [modelOptions, setModelOptions] = useState([])
   const [memoryStats, setMemoryStats] = useState(null)
   const [globalHistory, setGlobalHistory] = useState([])
+  const [availableAgents, setAvailableAgents] = useState([])
+  const [customAgents, setCustomAgents] = useState([])
+  const [agent1, setAgent1] = useState('philosopher')
+  const [agent2, setAgent2] = useState('skeptic')
+  
+  // Состояние для управления кастомными агентами
+  const [showCustomAgentForm, setShowCustomAgentForm] = useState(false)
+  const [editingAgent, setEditingAgent] = useState(null)
+  const [newAgentName, setNewAgentName] = useState('')
+  const [newAgentRole, setNewAgentRole] = useState('')
+  const [newAgentPrompt, setNewAgentPrompt] = useState('')
+  const [newAgentColor, setNewAgentColor] = useState('#8b5cf6')
+  const [customAgentStats, setCustomAgentStats] = useState(null)
 
   const abortRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -87,6 +100,12 @@ function App() {
           setModelOptions(data.models)
           setModel(data.model || data.models[0].id)
         }
+        if (data.allAgents?.length) {
+          setAvailableAgents(data.allAgents)
+        }
+        if (data.customAgents?.length) {
+          setCustomAgents(data.customAgents)
+        }
       })
       .catch(() => {})
     
@@ -98,6 +117,12 @@ function App() {
     
     // Загрузка глобальной истории дебатов
     loadGlobalHistory().then(setGlobalHistory)
+    
+    // Загрузка статистики кастомных агентов
+    fetch('/api/custom-agents/stats')
+      .then((res) => res.json())
+      .then((data) => setCustomAgentStats(data.stats))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -119,6 +144,84 @@ function App() {
 
   function stopDebate() {
     abortRef.current?.abort()
+  }
+
+  // Функции для управления кастомными агентами
+  async function saveCustomAgent() {
+    if (!newAgentName.trim() || !newAgentRole.trim() || !newAgentPrompt.trim()) {
+      setError('Заполните все поля')
+      return
+    }
+
+    try {
+      const url = editingAgent 
+        ? `/api/custom-agents/${editingAgent.id}` 
+        : '/api/custom-agents'
+      
+      const method = editingAgent ? 'PUT' : 'POST'
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAgentName,
+          role: newAgentRole,
+          systemPrompt: newAgentPrompt,
+          color: newAgentColor,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Ошибка сохранения')
+      }
+
+      // Перезагружаем список агентов
+      const agentsRes = await fetch('/api/agents')
+      const data = await agentsRes.json()
+      if (data.customAgents) {
+        setCustomAgents(data.customAgents)
+      }
+
+      // Сбрасываем форму
+      resetAgentForm()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function deleteCustomAgent(id) {
+    try {
+      const res = await fetch(`/api/custom-agents/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Ошибка удаления')
+
+      // Перезагружаем список
+      const agentsRes = await fetch('/api/agents')
+      const data = await agentsRes.json()
+      if (data.customAgents) {
+        setCustomAgents(data.customAgents)
+      }
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  function editCustomAgent(agent) {
+    setEditingAgent(agent)
+    setNewAgentName(agent.name)
+    setNewAgentRole(agent.role)
+    setNewAgentPrompt(agent.systemPrompt)
+    setNewAgentColor(agent.color)
+    setShowCustomAgentForm(true)
+  }
+
+  function resetAgentForm() {
+    setEditingAgent(null)
+    setNewAgentName('')
+    setNewAgentRole('')
+    setNewAgentPrompt('')
+    setNewAgentColor('#8b5cf6')
+    setShowCustomAgentForm(false)
   }
 
   function persistDebate(status, finalMessages, debateMeta) {
@@ -154,7 +257,7 @@ function App() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    let debateMeta = { topic: trimmed, rounds, withJudge, model }
+    let debateMeta = { topic: trimmed, rounds, withJudge, model, agent1, agent2 }
     let finalMessages = []
     let stopped = false
 
@@ -163,6 +266,8 @@ function App() {
         topic: trimmed,
         rounds: String(rounds),
         withJudge: withJudge ? '1' : '0',
+        agent1,
+        agent2,
       })
 
       if (model) params.set('model', model)
@@ -363,6 +468,78 @@ function App() {
         </div>
 
         <div className="settings">
+          {availableAgents.length > 0 && (
+            <>
+              <label className="setting">
+                <span>Агент 1</span>
+                <select
+                  className="select"
+                  value={agent1}
+                  disabled={loading}
+                  onChange={(e) => setAgent1(e.target.value)}
+                >
+                  {availableAgents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name} — {agent.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="setting">
+                <span>Агент 2</span>
+                <select
+                  className="select"
+                  value={agent2}
+                  disabled={loading}
+                  onChange={(e) => setAgent2(e.target.value)}
+                >
+                  {availableAgents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name} — {agent.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+
+          {customAgents.length > 0 && (
+            <>
+              <label className="setting">
+                <span>Агент 1 (кастомные)</span>
+                <select
+                  className="select"
+                  value={agent1}
+                  disabled={loading}
+                  onChange={(e) => setAgent1(e.target.value)}
+                >
+                  {customAgents.map((agent) => (
+                    <option key={agent.id} value={agent.id} style={{ color: agent.color }}>
+                      🎨 {agent.name} — {agent.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="setting">
+                <span>Агент 2 (кастомные)</span>
+                <select
+                  className="select"
+                  value={agent2}
+                  disabled={loading}
+                  onChange={(e) => setAgent2(e.target.value)}
+                >
+                  {customAgents.map((agent) => (
+                    <option key={agent.id} value={agent.id} style={{ color: agent.color }}>
+                      🎨 {agent.name} — {agent.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+
           {modelOptions.length > 0 && (
             <label className="setting">
               <span>Модель</span>
@@ -425,6 +602,125 @@ function App() {
         </div>
 
         {error && <div className="error">{error}</div>}
+        
+        {/* Секция управления кастомными агентами */}
+        <div className="custom-agents-section">
+          <div className="custom-agents-header">
+            <h3>🎨 Мои агенты</h3>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setShowCustomAgentForm(!showCustomAgentForm)}
+            >
+              {showCustomAgentForm ? 'Скрыть' : 'Создать агента'}
+            </button>
+          </div>
+          
+          {customAgentStats && (
+            <p className="custom-agents-stats">
+              Создано: <strong>{customAgentStats.totalAgents}</strong> · Активно: <strong>{customAgentStats.activeAgents}</strong>
+            </p>
+          )}
+          
+          {showCustomAgentForm && (
+            <div className="custom-agent-form panel">
+              <h4>{editingAgent ? 'Редактировать агента' : 'Новый агент'}</h4>
+              
+              <label className="label">
+                Имя агента
+                <input
+                  className="input"
+                  value={newAgentName}
+                  onChange={(e) => setNewAgentName(e.target.value)}
+                  placeholder="Например: Капиталист"
+                />
+              </label>
+              
+              <label className="label">
+                Роль / описание
+                <input
+                  className="input"
+                  value={newAgentRole}
+                  onChange={(e) => setNewAgentRole(e.target.value)}
+                  placeholder="Например: Сторонник свободного рынка"
+                />
+              </label>
+              
+              <label className="label">
+                Системный промт
+                <textarea
+                  className="textarea"
+                  value={newAgentPrompt}
+                  onChange={(e) => setNewAgentPrompt(e.target.value)}
+                  placeholder="Опишите поведение агента, его принципы и стиль аргументации..."
+                  rows={5}
+                />
+              </label>
+              
+              <label className="setting">
+                <span>Цвет аватара</span>
+                <input
+                  type="color"
+                  value={newAgentColor}
+                  onChange={(e) => setNewAgentColor(e.target.value)}
+                />
+              </label>
+              
+              <div className="actions">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={saveCustomAgent}
+                >
+                  {editingAgent ? 'Сохранить' : 'Создать'}
+                </button>
+                {editingAgent && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={resetAgentForm}
+                  >
+                    Отмена
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {customAgents.length > 0 && (
+            <div className="custom-agents-list">
+              {customAgents.map((agent) => (
+                <div key={agent.id} className="custom-agent-item">
+                  <div className="custom-agent-info">
+                    <span className="avatar" style={{ backgroundColor: agent.color }}>
+                      {agent.name[0]}
+                    </span>
+                    <div>
+                      <strong>{agent.name}</strong>
+                      <p>{agent.role}</p>
+                    </div>
+                  </div>
+                  <div className="custom-agent-actions">
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => editCustomAgent(agent)}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      className="link-btn danger"
+                      onClick={() => deleteCustomAgent(agent.id)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       {(meta || loading) && (

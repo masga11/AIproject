@@ -363,3 +363,145 @@ body {
 .memory-stats strong {
   color: #34d399;
 }
+
+.memory-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(6, 78, 59, 0.4);
+  color: #a7f3d0;
+  font-size: 0.85rem;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+/* Секция кастомных агентов */
+.custom-agents-section {
+  margin-top: 24px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.custom-agents-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.custom-agents-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #e2e8f0;
+}
+
+.custom-agents-stats {
+  margin: 0 0 14px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.custom-agents-stats strong {
+  color: #a5b4fc;
+}
+
+.custom-agent-form {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+.custom-agent-form h4 {
+  margin: 0 0 14px;
+  color: #e2e8f0;
+  font-size: 1rem;
+}
+
+.textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #111827;
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: 2px solid rgba(129, 140, 248, 0.45);
+  border-color: transparent;
+}
+
+.custom-agents-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.custom-agent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.custom-agent-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.custom-agent-info .avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+}
+
+.custom-agent-info strong {
+  display: block;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+}
+
+.custom-agent-info p {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.custom-agent-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-agent-actions .link-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.custom-agent-actions .link-btn:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.custom-agent-actions .link-btn.danger:hover {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+}
+
+.setting input[type='color'] {
+  width: 50px;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
