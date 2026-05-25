@@ -374,6 +374,84 @@ export class GlobalMemoryManager {
       id, topic, createdAt, provider, model, rounds, winner, messages
     }
   }
+  
+  // Расширенная аналитика
+  getAnalytics() {
+    if (!this.db) return { 
+      totalDebates: 0, 
+      totalMessages: 0, 
+      totalKnowledge: 0,
+      winRate: {},
+      avgRounds: 0,
+      debatesByProvider: {},
+      recentActivity: []
+    }
+
+    // Базовая статистика
+    const debates = this.db.exec('SELECT COUNT(*) FROM debates')
+    const messages = this.db.exec('SELECT COUNT(*) FROM messages')
+    const knowledge = this.db.exec('SELECT COUNT(*) FROM knowledge_fragments')
+
+    // Win rate по агентам
+    const winRateRows = this.db.exec(`
+      SELECT winner, COUNT(*) as wins
+      FROM debates
+      WHERE winner IS NOT NULL
+      GROUP BY winner
+    `)
+    const winRate = {}
+    if (winRateRows.length && winRateRows[0].values) {
+      for (const [winner, wins] of winRateRows[0].values) {
+        winRate[winner] = wins
+      }
+    }
+
+    // Среднее количество раундов
+    const avgRoundsRows = this.db.exec('SELECT AVG(rounds) FROM debates')
+    const avgRounds = avgRoundsRows[0]?.values?.[0]?.[0] || 0
+
+    // Дебаты по провайдерам
+    const providerRows = this.db.exec(`
+      SELECT provider, COUNT(*) as count
+      FROM debates
+      WHERE provider IS NOT NULL
+      GROUP BY provider
+    `)
+    const debatesByProvider = {}
+    if (providerRows.length && providerRows[0].values) {
+      for (const [provider, count] of providerRows[0].values) {
+        debatesByProvider[provider] = count
+      }
+    }
+
+    // Недавняя активность (последние 7 дней)
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000)
+    const recentRows = this.db.exec(`
+      SELECT DATE(created_at / 1000, 'unixepoch') as date, COUNT(*) as count
+      FROM debates
+      WHERE created_at >= ?
+      GROUP BY date
+      ORDER BY date DESC
+      LIMIT 7
+    `, [sevenDaysAgo])
+    
+    const recentActivity = []
+    if (recentRows.length && recentRows[0].values) {
+      for (const [date, count] of recentRows[0].values) {
+        recentActivity.push({ date, count })
+      }
+    }
+
+    return {
+      totalDebates: debates[0]?.values?.[0]?.[0] || 0,
+      totalMessages: messages[0]?.values?.[0]?.[0] || 0,
+      totalKnowledge: knowledge[0]?.values?.[0]?.[0] || 0,
+      winRate,
+      avgRounds: Math.round(avgRounds * 100) / 100,
+      debatesByProvider,
+      recentActivity
+    }
+  }
 }
 
 // Singleton

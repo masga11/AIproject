@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 const EXAMPLE_TOPICS = [
   'Искусственный интеллект заменит программистов к 2030 году',
@@ -76,6 +77,15 @@ function App() {
   const [customAgents, setCustomAgents] = useState([])
   const [agent1, setAgent1] = useState('philosopher')
   const [agent2, setAgent2] = useState('skeptic')
+  const [analytics, setAnalytics] = useState(null)
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  
+  // Настройки моделей для каждого агента отдельно
+  const [agent1Model, setAgent1Model] = useState('')
+  const [agent2Model, setAgent2Model] = useState('')
+  const [agent1Temp, setAgent1Temp] = useState(0.8)
+  const [agent2Temp, setAgent2Temp] = useState(0.8)
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   
   // Состояние для управления кастомными агентами
   const [showCustomAgentForm, setShowCustomAgentForm] = useState(false)
@@ -85,6 +95,7 @@ function App() {
   const [newAgentPrompt, setNewAgentPrompt] = useState('')
   const [newAgentColor, setNewAgentColor] = useState('#8b5cf6')
   const [customAgentStats, setCustomAgentStats] = useState(null)
+  const [exportFormat, setExportFormat] = useState<'markdown' | 'json'>('markdown')
 
   const abortRef = useRef(null)
   const messagesEndRef = useRef(null)
@@ -122,6 +133,12 @@ function App() {
     fetch('/api/custom-agents/stats')
       .then((res) => res.json())
       .then((data) => setCustomAgentStats(data.stats))
+      .catch(() => {})
+    
+    // Загрузка расширенной аналитики
+    fetch('/api/memory/analytics')
+      .then((res) => res.json())
+      .then((data) => setAnalytics(data.analytics))
       .catch(() => {})
   }, [])
 
@@ -224,6 +241,61 @@ function App() {
     setShowCustomAgentForm(false)
   }
 
+  // Функция экспорта дебатов
+  function exportDebate(format: 'markdown' | 'json' = 'markdown') {
+    if (messages.length === 0 || !meta) return
+    
+    let content = ''
+    const filename = `debate-${Date.now()}`
+    
+    if (format === 'json') {
+      content = JSON.stringify({
+        topic: meta.topic,
+        date: new Date().toISOString(),
+        rounds: meta.rounds,
+        model: meta.model,
+        messages: messages.map(m => ({
+          agent: m.agent,
+          role: m.role,
+          round: m.round,
+          isJudge: m.isJudge,
+          message: m.message
+        }))
+      }, null, 2)
+    } else {
+      // Markdown формат
+      content = `# Дебаты: ${meta.topic}\n\n`
+      content += `**Дата:** ${new Date().toLocaleString('ru-RU')}\n`
+      content += `**Модель:** ${meta.model}\n`
+      content += `**Раундов:** ${meta.rounds}\n\n`
+      content += `---\n\n`
+      
+      for (let i = 1; i <= meta.rounds; i++) {
+        content += `## Раунд ${i}\n\n`
+        const roundMessages = messages.filter(m => m.round === i && !m.isJudge)
+        for (const msg of roundMessages) {
+          content += `### ${msg.agent} (${msg.role})\n\n${msg.message}\n\n`
+        }
+      }
+      
+      const judgeMessage = messages.find(m => m.isJudge)
+      if (judgeMessage) {
+        content += `## Вердикт судьи\n\n${judgeMessage.message}\n`
+      }
+    }
+    
+    // Скачивание файла
+    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}.${format === 'json' ? 'json' : 'md'}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   function persistDebate(status, finalMessages, debateMeta) {
     if (!debateMeta?.topic || finalMessages.length === 0) return
 
@@ -271,6 +343,12 @@ function App() {
       })
 
       if (model) params.set('model', model)
+      
+      // Добавляем индивидуальные настройки агентов
+      if (agent1Model) params.set('agent1Model', agent1Model)
+      if (agent2Model) params.set('agent2Model', agent2Model)
+      if (agent1Temp !== 0.8) params.set('agent1Temp', String(agent1Temp))
+      if (agent2Temp !== 0.8) params.set('agent2Temp', String(agent2Temp))
 
       const response = await fetch(
         `/api/autonomous-debate-stream?${params.toString()}`,
@@ -542,7 +620,7 @@ function App() {
 
           {modelOptions.length > 0 && (
             <label className="setting">
-              <span>Модель</span>
+              <span>Модель (общая)</span>
               <select
                 className="select"
                 value={model}
@@ -559,6 +637,109 @@ function App() {
                 {modelOptions.find((option) => option.id === model)?.hint}
               </span>
             </label>
+          )}
+
+          <div className="advanced-settings-toggle">
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+              disabled={loading}
+            >
+              {showAdvancedSettings ? '▼ Скрыть настройки агентов' : '▶ Настройки агентов (модели, температура)'}
+            </button>
+          </div>
+
+          {showAdvancedSettings && modelOptions.length > 0 && (
+            <div className="agent-specific-settings">
+              <h4 style={{ fontSize: '14px', marginBottom: '12px', color: '#9ca3af' }}>Индивидуальные настройки агентов</h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                {/* Настройки Агента 1 */}
+                <div style={{ padding: '12px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px' }}>
+                  <h5 style={{ margin: '0 0 12px 0', color: availableAgents.find(a => a.id === agent1)?.color || '#8b5cf6' }}>
+                    {availableAgents.find(a => a.id === agent1)?.name || 'Агент 1'}
+                  </h5>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Модель</span>
+                    <select
+                      className="select"
+                      value={agent1Model}
+                      disabled={loading}
+                      onChange={(e) => setAgent1Model(e.target.value)}
+                      style={{ fontSize: '12px', padding: '4px' }}
+                    >
+                      <option value="">Как общая ({modelOptions.find(o => o.id === model)?.label})</option>
+                      {modelOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Температура: {agent1Temp.toFixed(1)}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1.5"
+                      step="0.1"
+                      value={agent1Temp}
+                      disabled={loading}
+                      onChange={(e) => setAgent1Temp(parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                      {agent1Temp < 0.5 ? 'Более точный' : agent1Temp > 1 ? 'Очень креативный' : 'Сбалансированный'}
+                    </span>
+                  </label>
+                </div>
+
+                {/* Настройки Агента 2 */}
+                <div style={{ padding: '12px', background: 'rgba(249, 115, 22, 0.1)', borderRadius: '8px' }}>
+                  <h5 style={{ margin: '0 0 12px 0', color: availableAgents.find(a => a.id === agent2)?.color || '#f97316' }}>
+                    {availableAgents.find(a => a.id === agent2)?.name || 'Агент 2'}
+                  </h5>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Модель</span>
+                    <select
+                      className="select"
+                      value={agent2Model}
+                      disabled={loading}
+                      onChange={(e) => setAgent2Model(e.target.value)}
+                      style={{ fontSize: '12px', padding: '4px' }}
+                    >
+                      <option value="">Как общая ({modelOptions.find(o => o.id === model)?.label})</option>
+                      {modelOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  
+                  <label className="setting" style={{ marginBottom: '8px' }}>
+                    <span style={{ fontSize: '12px' }}>Температура: {agent2Temp.toFixed(1)}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1.5"
+                      step="0.1"
+                      value={agent2Temp}
+                      disabled={loading}
+                      onChange={(e) => setAgent2Temp(parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                      {agent2Temp < 0.5 ? 'Более точный' : agent2Temp > 1 ? 'Очень креативный' : 'Сбалансированный'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
           )}
 
           <label className="setting">
@@ -598,6 +779,29 @@ function App() {
             <button type="button" className="secondary" onClick={stopDebate}>
               Стоп
             </button>
+          )}
+          
+          {!loading && messages.length > 0 && (
+            <button 
+              type="button" 
+              className="secondary" 
+              onClick={() => exportDebate(exportFormat)}
+              title={`Экспорт в ${exportFormat === 'json' ? 'JSON' : 'Markdown'}`}
+            >
+              📥 Экспорт
+            </button>
+          )}
+          
+          {!loading && messages.length > 0 && (
+            <select
+              className="select"
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as 'markdown' | 'json')}
+              style={{ width: 'auto', minWidth: '120px' }}
+            >
+              <option value="markdown">📄 Markdown</option>
+              <option value="json">📋 JSON</option>
+            </select>
           )}
         </div>
 
