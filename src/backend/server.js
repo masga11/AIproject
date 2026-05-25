@@ -82,7 +82,7 @@ app.get('/agents', async (_req, res) => {
   
   res.json({
     agents: defaultAgents,
-    allAgents: getAvailableAgents(),
+    allAgents: getAvailableAgents(customAgents),
     customAgents,
     rounds: DEFAULT_ROUNDS,
     minRounds: MIN_ROUNDS,

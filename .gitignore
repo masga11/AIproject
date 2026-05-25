@@ -1,54 +1,57 @@
 ```
-# Dependencies
-node_modules/
-
 # Build artifacts
 dist/
 build/
-target/
 
-# Vite cache
-.vite/
+# Dependencies
+node_modules/
 
-# Logs
-*.log
-
-# Environment variables
+# Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# IDE files
+# Editors
 .vscode/
 .idea/
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Temporary files
+# Logs and temp files
+*.log
 *.tmp
 *.swp
-*.swo
 
-# Python cache (if present)
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Coverage reports
+# Compiled
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.exe
+*.out
+
+# Coverage
 coverage/
 htmlcov/
 .coverage
 
-# MyPy cache
+# Cache
 .mypy_cache/
-
-# PyTest cache
 .pytest_cache/
+.cache/
+.gradle/
+target/
 
-# Compressed files
+# System
+.DS_Store
+Thumbs.db
+
+# Compressed
 *.zip
 *.gz
 *.tar
