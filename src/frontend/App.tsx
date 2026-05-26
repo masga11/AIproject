@@ -65,6 +65,7 @@ function hexToRgb(hex: string): string {
   return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
 }
 
+export default function App() {
   const [topic, setTopic] = useState('')
   const [rounds, setRounds] = useState(3)
   const [withJudge, setWithJudge] = useState(true)
@@ -1145,5 +1146,3 @@ function hexToRgb(hex: string): string {
     </div>
   )
 }
-
-export default App
