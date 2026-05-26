@@ -79,6 +79,7 @@ function App() {
   const [agent2, setAgent2] = useState('skeptic')
   const [analytics, setAnalytics] = useState(null)
   const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showStatsModal, setShowStatsModal] = useState(false)
   
   // Настройки моделей для каждого агента отдельно
   const [agent1Model, setAgent1Model] = useState('')
@@ -548,6 +549,7 @@ function App() {
               🧠 Глобальная память: <strong>{memoryStats.totalDebates}</strong> дебатов,{' '}
               <strong>{memoryStats.totalMessages}</strong> реплик,{' '}
               <strong>{memoryStats.totalKnowledge}</strong> знаний
+              {' '}<button type="button" className="link-btn" onClick={() => setShowStatsModal(true)}>📊 Подробнее</button>
             </p>
           )}
         </div>
@@ -1075,6 +1077,83 @@ function App() {
             ))}
           </div>
         </section>
+      )}
+
+      {showStatsModal && analytics && (
+        <div className="modal-overlay" onClick={() => setShowStatsModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📊 Расширенная статистика</h2>
+              <button type="button" className="close-btn" onClick={() => setShowStatsModal(false)}>✕</button>
+            </div>
+            
+            <div className="stats-grid">
+              <div className="stat-card">
+                <h3>Общая статистика</h3>
+                <p><strong>{analytics.totalDebates}</strong> дебатов</p>
+                <p><strong>{analytics.totalMessages}</strong> реплик</p>
+                <p><strong>{analytics.totalKnowledge}</strong> знаний в памяти</p>
+                <p><strong>{analytics.avgRounds}</strong> ср. раундов</p>
+              </div>
+
+              <div className="stat-card">
+                <h3>Победы по агентам</h3>
+                {Object.keys(analytics.winRate).length > 0 ? (
+                  <div className="win-rate-list">
+                    {Object.entries(analytics.winRate)
+                      .sort(([, a], [, b]) => (b as number) - (a as number))
+                      .map(([agent, wins]) => (
+                        <div key={agent} className="win-rate-item">
+                          <span>{agent}</span>
+                          <strong>{wins as number}</strong>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p>Нет данных о победах</p>
+                )}
+              </div>
+
+              <div className="stat-card">
+                <h3>Дебаты по провайдерам</h3>
+                {Object.keys(analytics.debatesByProvider).length > 0 ? (
+                  <div className="provider-list">
+                    {Object.entries(analytics.debatesByProvider)
+                      .sort(([, a], [, b]) => (b as number) - (a as number))
+                      .map(([provider, count]) => (
+                        <div key={provider} className="provider-item">
+                          <span>{provider === 'ollama' ? '🏠 Ollama' : '☁️ Groq'}</span>
+                          <strong>{count as number}</strong>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p>Нет данных</p>
+                )}
+              </div>
+
+              <div className="stat-card full-width">
+                <h3>Активность за последние 7 дней</h3>
+                {analytics.recentActivity.length > 0 ? (
+                  <div className="activity-chart">
+                    {analytics.recentActivity.map(({ date, count }) => (
+                      <div key={date} className="activity-bar">
+                        <span className="date">{date}</span>
+                        <div 
+                          className="bar" 
+                          style={{ height: `${Math.max(count * 10, 4)}px` }}
+                          title={`${count} дебатов`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p>Нет активности</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
