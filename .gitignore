@@ -1,16 +1,6 @@
 ```
-# Build artifacts
-dist/
-build/
-*.css
-*.js
-
 # Dependencies
 node_modules/
-
-# Editors
-.vscode/
-.idea/
 
 # Logs and temp files
 *.log
@@ -20,15 +10,96 @@ node_modules/
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
-# Python
-__pycache__/
+# Editors
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+target/
 *.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+
+# System
+.DS_Store
+Thumbs.db
+
+# Python specific
+*.pyc
+__pycache__/
 *.pyo
 *.pyd
 .Python
-venv/
-.venv/
-.env
+*.so
+*.egg-info/
+.eggs/
+
+# Node.js specific
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Java specific
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# C/C++ specific
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exe
+
+# Go specific
+*.o
+*.a
+*.swp
+*~
+.DS_Store
 ```

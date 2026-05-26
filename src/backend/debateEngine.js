@@ -100,30 +100,54 @@ export function buildMessages(agent, topic, memory, globalContext = '') {
   ]
 }
 
-export function buildJudgeMessages(topic, memory, agent1Name, agent2Name) {
+export function buildJudgeMessages(topic, memory, agentNames) {
   const entries = memory.recall()
 
   const transcript = entries
     .map((entry) => `[Раунд ${entry.round}] ${entry.agent} (${entry.role}):\n${entry.text}`)
     .join('\n\n')
 
-  return [
-    {
-      role: 'system',
-      content: `Ты беспристрастный судья дебатов. Оценивай аргументы, а не красноречие.
-Отвечай на русском языке. Будь конкретным и справедливым.`,
-    },
-    {
-      role: 'user',
-      content: `Тема дебатов: «${topic}»
+  const isMultiAgent = agentNames.length > 2
+  
+  let judgeInstruction = isMultiAgent
+    ? `Тема дебатов: «${topic}»
+
+Транскрипт:
+${transcript}
+
+Подведи итог спора:
+1. Кратко перескажи ключевые аргументы каждого участника.
+2. Распредели места между участниками (первое, второе, третье и т.д.).
+3. Обоснуй распределение мест в 2–3 абзацах.
+4. Верни результат в формате JSON:
+{
+  "summary": "краткое резюме",
+  "rankings": [
+    {"rank": 1, "agent": "ИмяАгента", "reason": "почему первое место"},
+    {"rank": 2, "agent": "ИмяАгента", "reason": "почему второе место"}
+  ]
+}
+
+Отвечай ТОЛЬКО JSON объектом без дополнительного текста.`
+    : `Тема дебатов: «${topic}»
 
 Транскрипт:
 ${transcript}
 
 Подведи итог спора:
 1. Кратко перескажи ключевые аргументы каждой стороны.
-2. Назови победителя: ${agent1Name} или ${agent2Name}.
-3. Объясни решение в 2–3 абзацах.`,
+2. Назови победителя: ${agentNames.join(' или ')}.
+3. Объясни решение в 2–3 абзацах.`
+
+  return [
+    {
+      role: 'system',
+      content: `Ты беспристрастный судья дебатов. Оценивай аргументы, а не красноречие.
+Отвечай на русском языке. Будь конкретным и справедливым.${isMultiAgent ? ' Верни результат в формате JSON.' : ''}`,
+    },
+    {
+      role: 'user',
+      content: judgeInstruction,
     },
   ]
 }
@@ -160,11 +184,11 @@ export async function streamAgentReply(client, agent, topic, memory, onToken, gl
   })
 }
 
-export async function streamJudgeVerdict(client, judge, topic, memory, onToken, agent1Name, agent2Name) {
+export async function streamJudgeVerdict(client, judge, topic, memory, onToken, agentNames) {
   return streamCompletion(client, {
     model: judge.model,
-    messages: buildJudgeMessages(topic, memory, agent1Name, agent2Name),
+    messages: buildJudgeMessages(topic, memory, agentNames),
     onToken,
-    maxTokens: 600,
+    maxTokens: agentNames.length > 2 ? 1000 : 600,
   })
 }

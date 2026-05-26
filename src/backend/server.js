@@ -165,16 +165,22 @@ app.get('/autonomous-debate-stream', async (req, res) => {
   const rounds = clampRounds(req.query.rounds)
   const withJudge = parseWithJudge(req.query.withJudge ?? '1')
   const model = (req.query.model || '').trim()
-  const agent1Id = (req.query.agent1 || 'philosopher').trim()
-  const agent2Id = (req.query.agent2 || 'skeptic').trim()
   
-  // Индивидуальные настройки для агентов
-  const agent1Model = (req.query.agent1Model || model || '').trim()
-  const agent2Model = (req.query.agent2Model || model || '').trim()
-  const agent1Temp = parseFloat(req.query.agent1Temp || '0.8')
-  const agent2Temp = parseFloat(req.query.agent2Temp || '0.8')
-  const agent1Provider = (req.query.agent1Provider || provider.name).trim()
-  const agent2Provider = (req.query.agent2Provider || provider.name).trim()
+  // Поддержка множественных агентов через agent[]=id1&agent[]=id2...
+  const agentIds = req.query.agents 
+    ? (Array.isArray(req.query.agents) ? req.query.agents : [req.query.agents])
+    : ['philosopher', 'skeptic']
+  
+  // Индивидуальные настройки для каждого агента
+  const agentModels = []
+  const agentTemps = []
+  const agentProviders = []
+  
+  for (let i = 0; i < agentIds.length; i++) {
+    agentModels.push((req.query[`agent${i}Model`] || model || '').trim())
+    agentTemps.push(parseFloat(req.query[`agent${i}Temp`] || '0.8'))
+    agentProviders.push((req.query[`agent${i}Provider`] || provider.name).trim())
+  }
 
   // Получаем пользовательских агентов
   await customAgentManager.init()
@@ -194,9 +200,10 @@ app.get('/autonomous-debate-stream', async (req, res) => {
     }
   }
   
-  const agent1Config = buildAgentConfig(agent1Id, agent1Model, agent1Temp, agent1Provider)
-  const agent2Config = buildAgentConfig(agent2Id, agent2Model, agent2Temp, agent2Provider)
-  const agents = [agent1Config, agent2Config]
+  const agents = agentIds.map((id, i) => 
+    buildAgentConfig(id, agentModels[i], agentTemps[i], agentProviders[i])
+  )
+  
   const judge = getJudgeForProvider(provider.name, model)
 
   res.setHeader('Content-Type', 'text/event-stream')
@@ -311,6 +318,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
         isJudge: true,
       })
 
+      const agentNames = agents.map(a => a.name)
       const verdict = await streamJudgeVerdict(
         client,
         judge,
@@ -321,8 +329,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
             sendEvent(res, { type: 'token', id: messageId, text: token })
           }
         },
-        agents[0].name,
-        agents[1].name,
+        agentNames,
       )
 
       if (aborted) {
@@ -334,10 +341,34 @@ app.get('/autonomous-debate-stream', async (req, res) => {
       if (verdict) {
         sendEvent(res, { type: 'agent_end', id: messageId, verdict })
         
-        // Обновляем победителя и извлекаем знания
-        const winnerMatch = verdict.match(/Победитель:\s*(\w+)/i) || verdict.match(/winner:\s*(\w+)/i)
-        const winner = winnerMatch ? winnerMatch[1] : (verdict.includes('Philosopher') ? 'Philosopher' : 'Skeptic')
-        globalMemory.updateWinner(session.debateId, winner)
+        // Обработка вердикта для множественных агентов
+        const isMultiAgent = agents.length > 2
+        let rankings = null
+        
+        if (isMultiAgent) {
+          // Пытаемся распарсить JSON вердикт
+          try {
+            const jsonMatch = verdict.match(/\{[\s\S]*\}/)
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0])
+              if (parsed.rankings && Array.isArray(parsed.rankings)) {
+                rankings = parsed.rankings
+                // Сохраняем ранжирование как строку в поле winner
+                const rankingStr = rankings.map(r => `${r.rank}. ${r.agent}`).join(', ')
+                globalMemory.updateWinner(session.debateId, rankingStr)
+              }
+            }
+          } catch (e) {
+            console.error('[Judge] Ошибка парсинга JSON вердикта:', e.message)
+            // Fallback: сохраняем весь вердикт
+            globalMemory.updateWinner(session.debateId, 'См. вердикт судьи')
+          }
+        } else {
+          // Для двух агентов - обычный поиск победителя
+          const winnerMatch = verdict.match(/Победитель:\s*(\w+)/i) || verdict.match(/winner:\s*(\w+)/i)
+          const winner = winnerMatch ? winnerMatch[1] : (verdict.includes(agents[0].name) ? agents[0].name : agents[1].name)
+          globalMemory.updateWinner(session.debateId, winner)
+        }
         
         // Извлекаем знания из дебата (асинхронно, не блокируя поток)
         extractKnowledgeFragments(client, judge.model, session.topic, 
