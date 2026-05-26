@@ -58,7 +58,13 @@ function formatDate(iso) {
   })
 }
 
-function App() {
+// Утилита для конвертации HEX в RGB
+function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  if (!result) return '139, 92, 246' // fallback color
+  return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`
+}
+
   const [topic, setTopic] = useState('')
   const [rounds, setRounds] = useState(3)
   const [withJudge, setWithJudge] = useState(true)
@@ -75,19 +81,16 @@ function App() {
   const [globalHistory, setGlobalHistory] = useState([])
   const [availableAgents, setAvailableAgents] = useState([])
   const [customAgents, setCustomAgents] = useState([])
-  const [agent1, setAgent1] = useState('philosopher')
-  const [agent2, setAgent2] = useState('skeptic')
+  const [agentCount, setAgentCount] = useState(2)
+  const [selectedAgents, setSelectedAgents] = useState(['philosopher', 'skeptic'])
   const [analytics, setAnalytics] = useState(null)
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
   
   // Настройки моделей для каждого агента отдельно
-  const [agent1Model, setAgent1Model] = useState('')
-  const [agent2Model, setAgent2Model] = useState('')
-  const [agent1Temp, setAgent1Temp] = useState(0.8)
-  const [agent2Temp, setAgent2Temp] = useState(0.8)
-  const [agent1Provider, setAgent1Provider] = useState('')
-  const [agent2Provider, setAgent2Provider] = useState('')
+  const [agentModels, setAgentModels] = useState<string[]>(['', ''])
+  const [agentTemps, setAgentTemps] = useState<number[]>([0.8, 0.8])
+  const [agentProviders, setAgentProviders] = useState<string[]>(['', ''])
   const [provider, setProvider] = useState({ name: 'ollama' })
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   
@@ -366,7 +369,7 @@ function App() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    let debateMeta = { topic: trimmed, rounds, withJudge, model, agent1, agent2 }
+    let debateMeta = { topic: trimmed, rounds, withJudge, model, agents: selectedAgents }
     let finalMessages = []
     let stopped = false
 
@@ -375,19 +378,21 @@ function App() {
         topic: trimmed,
         rounds: String(rounds),
         withJudge: withJudge ? '1' : '0',
-        agent1,
-        agent2,
       })
+      
+      // Добавляем всех выбранных агентов
+      for (const agentId of selectedAgents) {
+        params.append('agents', agentId)
+      }
 
       if (model) params.set('model', model)
       
-      // Добавляем индивидуальные настройки агентов
-      if (agent1Model) params.set('agent1Model', agent1Model)
-      if (agent2Model) params.set('agent2Model', agent2Model)
-      if (agent1Temp !== 0.8) params.set('agent1Temp', String(agent1Temp))
-      if (agent2Temp !== 0.8) params.set('agent2Temp', String(agent2Temp))
-      if (agent1Provider) params.set('agent1Provider', agent1Provider)
-      if (agent2Provider) params.set('agent2Provider', agent2Provider)
+      // Добавляем индивидуальные настройки для каждого агента
+      for (let i = 0; i < selectedAgents.length; i++) {
+        if (agentModels[i]) params.set(`agent${i}Model`, agentModels[i])
+        if (agentTemps[i] !== 0.8) params.set(`agent${i}Temp`, String(agentTemps[i]))
+        if (agentProviders[i]) params.set(`agent${i}Provider`, agentProviders[i])
+      }
 
       const response = await fetch(
         `/api/autonomous-debate-stream?${params.toString()}`,
@@ -586,47 +591,63 @@ function App() {
         </div>
 
         <div className="settings">
+          {/* Выбор количества агентов */}
+          <label className="setting">
+            <span>Количество агентов: <strong>{agentCount}</strong></span>
+            <input
+              type="range"
+              min={2}
+              max={5}
+              value={agentCount}
+              disabled={loading}
+              onChange={(e) => {
+                const newCount = Number(e.target.value)
+                setAgentCount(newCount)
+                // Обновляем массивы настроек под новое количество
+                setSelectedAgents(prev => {
+                  const updated = [...prev]
+                  while (updated.length < newCount) {
+                    const usedIds = new Set(updated.slice(0, updated.length))
+                    const nextAgent = availableAgents.find(a => !usedIds.has(a.id)) || availableAgents[0]
+                    updated.push(nextAgent?.id || 'philosopher')
+                  }
+                  return updated.slice(0, newCount)
+                })
+                setAgentModels(prev => [...prev.slice(0, newCount), ...Array(newCount - prev.length).fill('')])
+                setAgentTemps(prev => [...prev.slice(0, newCount), ...Array(newCount - prev.length).fill(0.8)])
+                setAgentProviders(prev => [...prev.slice(0, newCount), ...Array(newCount - prev.length).fill('')])
+              }}
+            />
+          </label>
+
           {availableAgents.length > 0 && (
             <>
-              <label className="setting">
-                <span>Агент 1</span>
-                <select
-                  className="select"
-                  value={agent1}
-                  disabled={loading}
-                  onChange={(e) => setAgent1(e.target.value)}
-                >
-                  {availableAgents.map((agent) => (
-                    <option 
-                      key={agent.id} 
-                      value={agent.id}
-                      style={{ color: agent.isCustom ? agent.color : undefined }}
-                    >
-                      {agent.isCustom ? '🎨 ' : ''}{agent.name} — {agent.role}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="setting">
-                <span>Агент 2</span>
-                <select
-                  className="select"
-                  value={agent2}
-                  disabled={loading}
-                  onChange={(e) => setAgent2(e.target.value)}
-                >
-                  {availableAgents.map((agent) => (
-                    <option 
-                      key={agent.id} 
-                      value={agent.id}
-                      style={{ color: agent.isCustom ? agent.color : undefined }}
-                    >
-                      {agent.isCustom ? '🎨 ' : ''}{agent.name} — {agent.role}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {/* Выбор агентов */}
+              {selectedAgents.map((agentId, index) => (
+                <label key={index} className="setting">
+                  <span>Агент {index + 1}</span>
+                  <select
+                    className="select"
+                    value={agentId}
+                    disabled={loading}
+                    onChange={(e) => {
+                      const newAgents = [...selectedAgents]
+                      newAgents[index] = e.target.value
+                      setSelectedAgents(newAgents)
+                    }}
+                  >
+                    {availableAgents.map((agent) => (
+                      <option 
+                        key={agent.id} 
+                        value={agent.id}
+                        style={{ color: agent.isCustom ? agent.color : undefined }}
+                      >
+                        {agent.isCustom ? '🎨 ' : ''}{agent.name} — {agent.role}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
             </>
           )}
 
@@ -666,120 +687,86 @@ function App() {
             <div className="agent-specific-settings">
               <h4 style={{ fontSize: '14px', marginBottom: '12px', color: '#9ca3af' }}>Индивидуальные настройки агентов</h4>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {/* Настройки Агента 1 */}
-                <div style={{ padding: '12px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px' }}>
-                  <h5 style={{ margin: '0 0 12px 0', color: availableAgents.find(a => a.id === agent1)?.color || '#8b5cf6' }}>
-                    {availableAgents.find(a => a.id === agent1)?.name || 'Агент 1'}
-                  </h5>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: agentCount <= 2 ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '16px' 
+              }}>
+                {/* Настройки для каждого агента */}
+                {selectedAgents.map((agentId, index) => {
+                  const agent = availableAgents.find(a => a.id === agentId)
+                  const bgColor = agent?.color || `hsl(${index * 60}, 70%, 20%)`
                   
-                  <label className="setting" style={{ marginBottom: '8px' }}>
-                    <span style={{ fontSize: '12px' }}>Провайдер</span>
-                    <select
-                      className="select"
-                      value={agent1Provider}
-                      disabled={loading}
-                      onChange={(e) => setAgent1Provider(e.target.value)}
-                      style={{ fontSize: '12px', padding: '4px' }}
-                    >
-                      <option value="">Как общий ({provider.name === 'groq' ? 'Groq' : 'Ollama'})</option>
-                      <option value="ollama">Ollama (локально)</option>
-                      <option value="groq">Groq (облако)</option>
-                    </select>
-                  </label>
-                  
-                  <label className="setting" style={{ marginBottom: '8px' }}>
-                    <span style={{ fontSize: '12px' }}>Модель</span>
-                    <select
-                      className="select"
-                      value={agent1Model}
-                      disabled={loading}
-                      onChange={(e) => setAgent1Model(e.target.value)}
-                      style={{ fontSize: '12px', padding: '4px' }}
-                    >
-                      <option value="">Как общая ({modelOptions.find(o => o.id === model)?.label})</option>
-                      {modelOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  
-                  <label className="setting" style={{ marginBottom: '8px' }}>
-                    <span style={{ fontSize: '12px' }}>Температура: {agent1Temp.toFixed(1)}</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1.5"
-                      step="0.1"
-                      value={agent1Temp}
-                      disabled={loading}
-                      onChange={(e) => setAgent1Temp(parseFloat(e.target.value))}
-                      style={{ width: '100%' }}
-                    />
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>
-                      {agent1Temp < 0.5 ? 'Более точный' : agent1Temp > 1 ? 'Очень креативный' : 'Сбалансированный'}
-                    </span>
-                  </label>
-                </div>
-
-                {/* Настройки Агента 2 */}
-                <div style={{ padding: '12px', background: 'rgba(249, 115, 22, 0.1)', borderRadius: '8px' }}>
-                  <h5 style={{ margin: '0 0 12px 0', color: availableAgents.find(a => a.id === agent2)?.color || '#f97316' }}>
-                    {availableAgents.find(a => a.id === agent2)?.name || 'Агент 2'}
-                  </h5>
-                  
-                  <label className="setting" style={{ marginBottom: '8px' }}>
-                    <span style={{ fontSize: '12px' }}>Провайдер</span>
-                    <select
-                      className="select"
-                      value={agent2Provider}
-                      disabled={loading}
-                      onChange={(e) => setAgent2Provider(e.target.value)}
-                      style={{ fontSize: '12px', padding: '4px' }}
-                    >
-                      <option value="">Как общий ({provider.name === 'groq' ? 'Groq' : 'Ollama'})</option>
-                      <option value="ollama">Ollama (локально)</option>
-                      <option value="groq">Groq (облако)</option>
-                    </select>
-                  </label>
-                  
-                  <label className="setting" style={{ marginBottom: '8px' }}>
-                    <span style={{ fontSize: '12px' }}>Модель</span>
-                    <select
-                      className="select"
-                      value={agent2Model}
-                      disabled={loading}
-                      onChange={(e) => setAgent2Model(e.target.value)}
-                      style={{ fontSize: '12px', padding: '4px' }}
-                    >
-                      <option value="">Как общая ({modelOptions.find(o => o.id === model)?.label})</option>
-                      {modelOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  
-                  <label className="setting" style={{ marginBottom: '8px' }}>
-                    <span style={{ fontSize: '12px' }}>Температура: {agent2Temp.toFixed(1)}</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1.5"
-                      step="0.1"
-                      value={agent2Temp}
-                      disabled={loading}
-                      onChange={(e) => setAgent2Temp(parseFloat(e.target.value))}
-                      style={{ width: '100%' }}
-                    />
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>
-                      {agent2Temp < 0.5 ? 'Более точный' : agent2Temp > 1 ? 'Очень креативный' : 'Сбалансированный'}
-                    </span>
-                  </label>
-                </div>
+                  return (
+                    <div key={index} style={{ padding: '12px', background: `rgba(${hexToRgb(bgColor)}, 0.1)`, borderRadius: '8px' }}>
+                      <h5 style={{ margin: '0 0 12px 0', color: agent?.color || bgColor }}>
+                        {agent?.name || `Агент ${index + 1}`}
+                      </h5>
+                      
+                      <label className="setting" style={{ marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px' }}>Провайдер</span>
+                        <select
+                          className="select"
+                          value={agentProviders[index] || ''}
+                          disabled={loading}
+                          onChange={(e) => {
+                            const newProviders = [...agentProviders]
+                            newProviders[index] = e.target.value
+                            setAgentProviders(newProviders)
+                          }}
+                          style={{ fontSize: '12px', padding: '4px' }}
+                        >
+                          <option value="">Как общий ({provider.name === 'groq' ? 'Groq' : 'Ollama'})</option>
+                          <option value="ollama">Ollama (локально)</option>
+                          <option value="groq">Groq (облако)</option>
+                        </select>
+                      </label>
+                      
+                      <label className="setting" style={{ marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px' }}>Модель</span>
+                        <select
+                          className="select"
+                          value={agentModels[index] || ''}
+                          disabled={loading}
+                          onChange={(e) => {
+                            const newModels = [...agentModels]
+                            newModels[index] = e.target.value
+                            setAgentModels(newModels)
+                          }}
+                          style={{ fontSize: '12px', padding: '4px' }}
+                        >
+                          <option value="">Как общая ({modelOptions.find(o => o.id === model)?.label})</option>
+                          {modelOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      
+                      <label className="setting" style={{ marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px' }}>Температура: {agentTemps[index].toFixed(1)}</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1.5"
+                          step="0.1"
+                          value={agentTemps[index]}
+                          disabled={loading}
+                          onChange={(e) => {
+                            const newTemps = [...agentTemps]
+                            newTemps[index] = parseFloat(e.target.value)
+                            setAgentTemps(newTemps)
+                          }}
+                          style={{ width: '100%' }}
+                        />
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                          {agentTemps[index] < 0.5 ? 'Более точный' : agentTemps[index] > 1 ? 'Очень креативный' : 'Сбалансированный'}
+                        </span>
+                      </label>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
