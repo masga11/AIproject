@@ -2,14 +2,11 @@
 # Build artifacts
 dist/
 build/
+*.css
+*.js
 
 # Dependencies
 node_modules/
-
-# Environment
-.env
-.env.local
-.env.*
 
 # Editors
 .vscode/
@@ -20,58 +17,18 @@ node_modules/
 *.tmp
 *.swp
 
+# Environment
+.env
+.env.local
+.env.*
+
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Compiled
-*.o
-*.obj
-*.so
-*.a
-*.dll
-*.exe
-*.out
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Cache
-.mypy_cache/
-.pytest_cache/
-.cache/
-.gradle/
-target/
-
-# System
-.DS_Store
-Thumbs.db
-
-# Compressed
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+.Python
+venv/
+.venv/
+.env
 ```
