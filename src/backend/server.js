@@ -1,9 +1,12 @@
 import 'dotenv/config'
 import crypto from 'crypto'
 if (!globalThis.crypto) globalThis.crypto = crypto
+import { execSync } from 'child_process'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 import express from 'express'
 import cors from 'cors'
-import path from 'path'
 import { fileURLToPath } from 'url'
 import OpenAI from 'openai'
 import {
@@ -86,30 +89,44 @@ app.get('/health', (_req, res) => {
     providerLabel: provider.label,
     model: provider.model,
     ready: Boolean(client),
-    piper: Boolean(process.env.PIPER_BASE_URL),
+    piper: piperExists,
   })
 })
 
-const PIPER_URL = process.env.PIPER_BASE_URL || 'http://172.31.64.1:5000'
+const PIPER_PATH = process.env.PIPER_PATH || '/mnt/c/Users/Admin/Desktop/piper/piper.exe'
+const PIPER_MODEL = process.env.PIPER_MODEL || 'ru_RU-ruslan-medium.onnx'
+const PIPER_DIR = path.dirname(PIPER_PATH)
+const piperExists = fs.existsSync(PIPER_PATH)
 
-app.get('/tts', async (req, res) => {
+function piperTTS(text) {
+  const timestamp = Date.now()
+  const outFileWsl = `/mnt/c/Users/Admin/AppData/Local/Temp/tts-${timestamp}.wav`
+  const outFileWin = `C:\\Users\\Admin\\AppData\\Local\\Temp\\tts-${timestamp}.wav`
+  const script = `echo ${JSON.stringify(text)} | "${PIPER_PATH}" --model "${PIPER_MODEL}" --output_file "${outFileWin}"`
+  execSync(script, { cwd: PIPER_DIR, timeout: 15000 })
+  const buffer = fs.readFileSync(outFileWsl)
+  fs.unlinkSync(outFileWsl)
+  return buffer
+}
+
+app.get('/tts', (req, res) => {
   const text = (req.query.text || '').trim()
   if (!text) {
     return res.status(400).json({ error: 'Укажите text' })
   }
 
+  if (!piperExists) {
+    return res.status(503).json({ error: 'Piper не найден.' })
+  }
+
   try {
-    const response = await fetch(`${PIPER_URL}/?text=${encodeURIComponent(text)}&speaker=0`)
-    if (!response.ok) {
-      throw new Error(`Piper returned ${response.status}`)
-    }
-    const buffer = Buffer.from(await response.arrayBuffer())
+    const buffer = piperTTS(text)
     res.setHeader('Content-Type', 'audio/wav')
     res.setHeader('Content-Length', buffer.length)
     res.send(buffer)
   } catch (err) {
     console.error('[TTS] Piper error:', err.message)
-    res.status(503).json({ error: 'Piper не доступен. Убедитесь что Piper запущен на Windows.' })
+    res.status(503).json({ error: 'Piper не доступен.' })
   }
 })
 
