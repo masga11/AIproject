@@ -22,6 +22,7 @@ import { ProgressBar } from './components/ProgressBar'
 import { ElapsedTimer } from './components/ElapsedTimer'
 import { TournamentSetup } from './components/TournamentSetup'
 import { TournamentBracket } from './components/TournamentBracket'
+import { exportPdf } from './pdfExport'
 
 export default function App() {
   const [topic, setTopic] = useState('')
@@ -50,6 +51,7 @@ export default function App() {
   const [provider, setProvider] = useState({ name: 'ollama' })
   const [customAgentStats, setCustomAgentStats] = useState<AgentStats | null>(null)
   const [exportFormat, setExportFormat] = useState<'markdown' | 'json'>('markdown')
+  const [pdfStyle, setPdfStyle] = useState<'minimal' | 'detailed'>('minimal')
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
   })
@@ -169,6 +171,15 @@ export default function App() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+
+  async function handlePdfExport() {
+    if (messages.length === 0 || !meta) return
+    try {
+      await exportPdf({ topic: meta.topic, messages, meta, style: pdfStyle })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка экспорта PDF')
+    }
   }
 
   async function importDebates(files: FileList | null) {
@@ -614,8 +625,21 @@ export default function App() {
             onChange={(e) => setExportFormat(e.target.value as 'markdown' | 'json')}
             style={{ width: 'auto', minWidth: '120px' }}
           >
-            <option value="markdown">📄 Markdown</option>
-            <option value="json">📋 JSON</option>
+            <option value="markdown">Markdown</option>
+            <option value="json">JSON</option>
+          </select>
+
+          <button type="button" className="secondary" onClick={handlePdfExport}>
+            📄 PDF
+          </button>
+          <select
+            className="select"
+            value={pdfStyle}
+            onChange={(e) => setPdfStyle(e.target.value as 'minimal' | 'detailed')}
+            style={{ width: 'auto', minWidth: '120px' }}
+          >
+            <option value="minimal">Минимализм</option>
+            <option value="detailed">Детальный</option>
           </select>
         </div>
       )}
