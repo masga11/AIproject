@@ -2,7 +2,7 @@ import { MemoryManager } from './memory/memoryManager.js'
 import { globalMemory } from './memory/globalMemory.js'
 
 export const DEFAULT_ROUNDS = 3
-export const MIN_ROUNDS = 1
+export const MIN_ROUNDS = 3
 export const MAX_ROUNDS = 3
 
 export function clampRounds(value) {

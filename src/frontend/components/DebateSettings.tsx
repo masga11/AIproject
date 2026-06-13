@@ -234,18 +234,6 @@ export function DebateSettings({
           />
         )}
 
-        <label className="setting">
-          <span>Раундов: <strong>{rounds}</strong></span>
-          <input
-            type="range"
-            min={1}
-            max={3}
-            value={rounds}
-            disabled={loading}
-            onChange={(e) => onRoundsChange(Number(e.target.value))}
-          />
-        </label>
-
         <label className="setting checkbox">
           <input
             type="checkbox"
