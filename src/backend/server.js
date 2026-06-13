@@ -1,6 +1,10 @@
 import 'dotenv/config'
+import crypto from 'crypto'
+if (!globalThis.crypto) globalThis.crypto = crypto
 import express from 'express'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import OpenAI from 'openai'
 import {
   DEFAULT_ROUNDS,
@@ -19,11 +23,19 @@ import { createTournamentBracket, runTournamentMatch } from './tournament.js'
 
 const PORT = process.env.PORT || 3002
 const app = express()
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const provider = resolveProvider()
 const defaultAgents = getAgentsForProvider(provider.name)
 
 app.use(cors())
 app.use(express.json())
+
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/')) {
+    req.url = req.url.slice(4)
+  }
+  next()
+})
 
 const client = provider.ready
   ? new OpenAI({
@@ -635,6 +647,12 @@ app.get('/tournament/:id/stream', async (req, res) => {
   }
 
   res.end()
+})
+
+const distPath = path.join(__dirname, '../../dist')
+app.use(express.static(distPath))
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'))
 })
 
 const server = app.listen(PORT, () => {
