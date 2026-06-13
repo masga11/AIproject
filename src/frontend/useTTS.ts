@@ -1,7 +1,6 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 
 interface AgentVoiceConfig {
-  voiceIndex?: number
   rate?: number
   pitch?: number
 }
@@ -21,6 +20,8 @@ export function useTTS() {
   const synthRef = useRef<SpeechSynthesis | null>(null)
   const voicesRef = useRef<SpeechSynthesisVoice[]>([])
   const voiceIndexRef = useRef(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [piperAvailable, setPiperAvailable] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -36,7 +37,31 @@ export function useTTS() {
     }
   }, [])
 
-  const speak = useCallback((text: string, agentId?: string) => {
+  useEffect(() => {
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(data => setPiperAvailable(data.piper))
+      .catch(() => setPiperAvailable(false))
+  }, [])
+
+  const speakPiper = useCallback(async (text: string) => {
+    if (!text) return
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+
+    const response = await fetch(`/api/tts?text=${encodeURIComponent(text)}`)
+    if (!response.ok) throw new Error('Piper error')
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const audio = new Audio(url)
+    audioRef.current = audio
+    await audio.play()
+  }, [])
+
+  const speakWebSpeech = useCallback((text: string, agentId?: string) => {
     if (!synthRef.current || !text) return
     synthRef.current.cancel()
 
@@ -49,12 +74,8 @@ export function useTTS() {
 
     const ruVoices = voicesRef.current.filter(v => v.lang.startsWith('ru'))
     if (ruVoices.length > 0) {
-      if (config?.voiceIndex !== undefined) {
-        utterance.voice = ruVoices[config.voiceIndex % ruVoices.length]
-      } else {
-        const idx = voiceIndexRef.current % ruVoices.length
-        utterance.voice = ruVoices[idx]
-      }
+      const idx = voiceIndexRef.current % ruVoices.length
+      utterance.voice = ruVoices[idx]
     }
 
     utterance.onend = () => {
@@ -64,9 +85,26 @@ export function useTTS() {
     synthRef.current.speak(utterance)
   }, [])
 
+  const speak = useCallback(async (text: string, agentId?: string) => {
+    if (piperAvailable === true) {
+      try {
+        await speakPiper(text)
+        return
+      } catch {
+        speakWebSpeech(text, agentId)
+      }
+    } else {
+      speakWebSpeech(text, agentId)
+    }
+  }, [piperAvailable, speakPiper, speakWebSpeech])
+
   const stop = useCallback(() => {
     synthRef.current?.cancel()
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
   }, [])
 
-  return { speak, stop }
+  return { speak, stop, piperAvailable }
 }

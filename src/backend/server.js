@@ -86,7 +86,31 @@ app.get('/health', (_req, res) => {
     providerLabel: provider.label,
     model: provider.model,
     ready: Boolean(client),
+    piper: Boolean(process.env.PIPER_BASE_URL),
   })
+})
+
+const PIPER_URL = process.env.PIPER_BASE_URL || 'http://172.31.64.1:5000'
+
+app.get('/tts', async (req, res) => {
+  const text = (req.query.text || '').trim()
+  if (!text) {
+    return res.status(400).json({ error: 'Укажите text' })
+  }
+
+  try {
+    const response = await fetch(`${PIPER_URL}/?text=${encodeURIComponent(text)}&speaker=0`)
+    if (!response.ok) {
+      throw new Error(`Piper returned ${response.status}`)
+    }
+    const buffer = Buffer.from(await response.arrayBuffer())
+    res.setHeader('Content-Type', 'audio/wav')
+    res.setHeader('Content-Length', buffer.length)
+    res.send(buffer)
+  } catch (err) {
+    console.error('[TTS] Piper error:', err.message)
+    res.status(503).json({ error: 'Piper не доступен. Убедитесь что Piper запущен на Windows.' })
+  }
 })
 
 app.get('/agents', async (_req, res) => {
