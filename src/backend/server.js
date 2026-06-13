@@ -256,9 +256,11 @@ app.get('/autonomous-debate-stream', async (req, res) => {
 
       sendEvent(res, { type: 'round_start', round, total: rounds })
 
-      for (const agent of agents) {
+      for (let agentIdx = 0; agentIdx < agents.length; agentIdx++) {
+        const agent = agents[agentIdx]
         if (aborted) break
 
+        const side = agentIdx + 1
         const messageId = `${agent.id}-r${round}-${Date.now()}`
 
         sendEvent(res, {
@@ -268,6 +270,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
           role: agent.role,
           color: agent.color,
           round,
+          side: `Сторона ${side}`,
         })
 
         const answer = await streamAgentReply(
@@ -281,6 +284,8 @@ app.get('/autonomous-debate-stream', async (req, res) => {
             }
           },
           globalContext,
+          round,
+          side,
         )
 
         if (aborted) break

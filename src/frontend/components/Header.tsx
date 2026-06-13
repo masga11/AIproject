@@ -22,7 +22,7 @@ export function Header({ memoryStats, onShowStats, theme, onToggleTheme }: Heade
         <p className="eyebrow">Автономные ИИ-дебаты</p>
         <h1>AI Debate Arena</h1>
         <p className="subtitle">
-          Два агента спорят в несколько раундов, судья подводит итог.
+          Два агента дискутируют в несколько раундов, судья подводит итог.
         </p>
         {memoryStats && (
           <p className="memory-stats">

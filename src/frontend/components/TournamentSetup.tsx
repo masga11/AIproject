@@ -36,7 +36,7 @@ export function TournamentSetup({ availableAgents, onStart, loading }: Tournamen
     <section className="panel tournament-setup">
       <h2 style={{ margin: '0 0 16px', fontSize: '1.3rem' }}>🏆 Турнир</h2>
       <p style={{ margin: '0 0 20px', color: '#94a3b8', fontSize: '0.95rem' }}>
-        Выберите агентов для турнира. Они будут спорить в парах, победители проходят дальше.
+        Выберите агентов для турнира. Они будут дискутировать в парах, победители проходят дальше.
       </p>
 
       <label className="label">Агенты (минимум 2)</label>

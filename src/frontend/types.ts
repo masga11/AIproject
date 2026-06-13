@@ -19,6 +19,7 @@ export interface DebateMessage {
   role: string
   color: string
   round: number | string
+  side?: string
   isJudge: boolean
   message: string
 }

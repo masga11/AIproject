@@ -17,7 +17,7 @@ export function DebateMessages({ messages, loading, messagesEndRef }: DebateMess
         <div className="empty-state">
           <div className="empty-state-icon">💬</div>
           <h3>Готовы к дебатам?</h3>
-          <p>Введите тему, выберите агентов и нажмите «Запустить». Агенты начнут спор в реальном времени.</p>
+          <p>Введите тему, выберите агентов и нажмите «Запустить». Агенты начнут дискуссию в реальном времени.</p>
         </div>
       )}
 
@@ -34,7 +34,7 @@ export function DebateMessages({ messages, loading, messagesEndRef }: DebateMess
               <p>{item.role}</p>
             </div>
             <span className="round-badge">
-              {item.isJudge ? 'Вердикт' : `Раунд ${item.round}`}
+              {item.isJudge ? 'Вердикт' : `Раунд ${item.round} · ${item.side || ''}`}
             </span>
             <button
               type="button"

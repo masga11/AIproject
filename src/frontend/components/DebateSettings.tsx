@@ -85,7 +85,7 @@ export function DebateSettings({
 
   return (
     <section className="panel">
-      <label className="label" htmlFor="topic">Тема спора</label>
+      <label className="label" htmlFor="topic">Тема дискуссии</label>
       <div className="topic-input-row">
         <input
           id="topic"
@@ -239,7 +239,7 @@ export function DebateSettings({
           <input
             type="range"
             min={1}
-            max={5}
+            max={3}
             value={rounds}
             disabled={loading}
             onChange={(e) => onRoundsChange(Number(e.target.value))}
@@ -264,7 +264,7 @@ export function DebateSettings({
           onClick={onStart}
           disabled={loading || !topic.trim()}
         >
-          {loading ? 'Идёт спор…' : 'Запустить автономный спор'}
+          {loading ? 'Идёт дискуссия…' : 'Запустить автономную дискуссию'}
         </button>
         {loading && (
           <button type="button" className="secondary" onClick={onStop}>Стоп</button>

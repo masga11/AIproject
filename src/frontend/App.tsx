@@ -343,7 +343,7 @@ export default function App() {
             case 'agent_start':
               finalMessages = [...finalMessages, {
                 id: event.id, agent: event.agent, role: event.role, color: event.color,
-                round: event.round, isJudge: event.isJudge || false, message: '',
+                round: event.round, side: event.side || '', isJudge: event.isJudge || false, message: '',
               }]
               setMessages(finalMessages)
               break
@@ -498,6 +498,7 @@ export default function App() {
                 role: event.role,
                 color: event.color,
                 round: event.round,
+                side: event.side || '',
                 isJudge: event.isJudge || false,
                 message: '',
               }])
