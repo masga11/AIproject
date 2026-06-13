@@ -68,7 +68,10 @@ export async function runTournamentMatch(client, match, topic, providerName, mod
   for (let round = 1; round <= numRounds; round++) {
     onEvent?.({ type: 'round_start', matchId: match.id, round })
 
-    for (const agent of [agent1Config, agent2Config]) {
+    const agentConfigs = [agent1Config, agent2Config]
+    for (let agentIdx = 0; agentIdx < agentConfigs.length; agentIdx++) {
+      const agent = agentConfigs[agentIdx]
+      const side = agentIdx + 1
       const messageId = `${agent.id}-r${round}-${Date.now()}-${Math.random()}`
       onEvent?.({ type: 'agent_start', id: messageId, agent: agent.name, role: agent.role, color: agent.color, round })
 
@@ -78,6 +81,9 @@ export async function runTournamentMatch(client, match, topic, providerName, mod
         session.topic,
         session.memory,
         (token) => onEvent?.({ type: 'token', id: messageId, text: token }),
+        '',
+        round,
+        side,
       )
 
       if (!answer) {
@@ -133,8 +139,8 @@ export async function runTournamentMatch(client, match, topic, providerName, mod
   match.status = 'completed'
 
   await globalMemory.init()
-  const debateId = globalMemory.saveDebate(`Tournament: ${topic}`, providerName, model, 3, winner.name)
-  for (let r = 1; r <= 3; r++) {
+  const debateId = globalMemory.saveDebate(`Tournament: ${topic}`, providerName, model, numRounds, winner.name)
+  for (let r = 1; r <= numRounds; r++) {
     const entries = session.memory.recall().filter(e => e.round === r)
     for (const entry of entries) {
       globalMemory.saveMessage(debateId, entry.agent, entry.role, r, entry.text)

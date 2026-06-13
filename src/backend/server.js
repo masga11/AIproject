@@ -424,8 +424,28 @@ app.get('/autonomous-debate-stream', async (req, res) => {
           }
         } else {
           // Для двух агентов - обычный поиск победителя
-          const winnerMatch = verdict.match(/Победитель:\s*(\w+)/i) || verdict.match(/winner:\s*(\w+)/i)
-          const winner = winnerMatch ? winnerMatch[1] : (verdict.includes(agents[0].name) ? agents[0].name : agents[1].name)
+          const winnerMatch = verdict.match(/Победитель:\s*(.+)/i)
+            || verdict.match(/winner:\s*(.+)/i)
+            || verdict.match(/объявляю победителем\s+(.+)/i)
+            || verdict.match(/победителем является\s+(.+)/i)
+            || verdict.match(/побеждает\s+(\S+)/i)
+            || verdict.match(/одержал[а]?\s+победу\s+(\S+)/i)
+          let winner = winnerMatch ? winnerMatch[1].trim() : null
+          if (winner) {
+            if (winner.toLowerCase().includes(agents[1].name.toLowerCase())) {
+              winner = agents[1].name
+            } else if (winner.toLowerCase().includes(agents[0].name.toLowerCase())) {
+              winner = agents[0].name
+            } else {
+              winner = null
+            }
+          }
+          if (!winner) {
+            // Fallback: pick the agent whose name appears more in the verdict
+            const count0 = (verdict.toLowerCase().match(new RegExp(agents[0].name.toLowerCase(), 'g')) || []).length
+            const count1 = (verdict.toLowerCase().match(new RegExp(agents[1].name.toLowerCase(), 'g')) || []).length
+            winner = count1 > count0 ? agents[1].name : agents[0].name
+          }
           globalMemory.updateWinner(session.debateId, winner)
         }
         
@@ -545,7 +565,7 @@ app.post('/memory/import', async (req, res) => {
         debate.winner || null,
       )
 
-        for (const msg of debate.messages) {
+      for (const msg of debate.messages) {
         const content = msg.content || msg.message || msg.text
         if (msg.agent && content) {
           globalMemory.saveMessage(

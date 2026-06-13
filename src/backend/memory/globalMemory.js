@@ -182,9 +182,9 @@ export class GlobalMemoryManager {
     const messages = this.db.exec(`
       SELECT agent_name, agent_role, round, content 
       FROM messages 
-      WHERE debate_id = '${debateId}' 
+      WHERE debate_id = ?
       ORDER BY round, agent_name
-    `)
+    `, [debateId])
 
     if (!messages.length || !messages[0].values) return []
 
