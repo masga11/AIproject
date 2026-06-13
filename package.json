@@ -1,0 +1,27 @@
+{
+  "name": "ai-debate-arena",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "node src/backend/server.js",
+    "frontend": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.19.2",
+    "openai": "^4.52.7",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "sql.js": "^1.14.1",
+    "uuid": "^14.0.0",
+    "vite": "^8.0.14"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
