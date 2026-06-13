@@ -39,7 +39,7 @@ export function DebateMessages({ messages, loading, messagesEndRef }: DebateMess
             <button
               type="button"
               className="tts-btn"
-              onClick={() => speak(item.message)}
+              onClick={() => speak(item.message, item.id?.split('-')[0])}
               title="Озвучить реплику"
             >
               🔊
