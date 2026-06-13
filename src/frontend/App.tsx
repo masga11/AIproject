@@ -7,6 +7,7 @@ import {
   clearHistory as clearLocalHistory,
   loadGlobalHistory,
   loadGlobalDebate,
+  loadTournamentHistory,
   fetchAgents,
   fetchMemoryStats,
   fetchAnalytics,
@@ -22,6 +23,7 @@ import { ProgressBar } from './components/ProgressBar'
 import { ElapsedTimer } from './components/ElapsedTimer'
 import { TournamentSetup } from './components/TournamentSetup'
 import { TournamentBracket } from './components/TournamentBracket'
+import { TournamentArchive } from './components/TournamentArchive'
 import { exportPdf } from './pdfExport'
 
 export default function App() {
@@ -61,6 +63,7 @@ export default function App() {
   const [tournamentStatus, setTournamentStatus] = useState<string>('pending')
   const [tournamentLoading, setTournamentLoading] = useState(false)
   const [tournamentMessages, setTournamentMessages] = useState<DebateMessage[]>([])
+  const [tournamentHistory, setTournamentHistory] = useState<GlobalDebateEntry[]>([])
 
   const abortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -102,6 +105,7 @@ export default function App() {
 
     fetchMemoryStats().then((data) => setMemoryStats(data.stats)).catch(() => {})
     loadGlobalHistory().then(setGlobalHistory)
+    loadTournamentHistory().then(setTournamentHistory)
     fetchCustomAgentStats().then((data) => setCustomAgentStats(data.stats)).catch(() => {})
     fetchAnalytics().then((data) => setAnalytics(data.analytics)).catch(() => {})
   }, [])
@@ -418,6 +422,32 @@ export default function App() {
     setCurrentRound(0)
   }
 
+  async function openTournamentItem(item: GlobalDebateEntry) {
+    setViewingHistoryId(item.id)
+    setTopic(item.topic)
+    setAppMode('debate')
+
+    const globalDebate = await loadGlobalDebate(item.id)
+    if (globalDebate && globalDebate.messages) {
+      const formattedMessages = globalDebate.messages.map((msg: Record<string, unknown>, idx: number) => ({
+        id: `${msg.agentName}-r${msg.round}-${idx}`,
+        agent: msg.agentName as string,
+        role: msg.agentRole as string,
+        color: (msg.agentRole === 'Философ' || msg.agentName === 'Philosopher') ? '#8b5cf6'
+          : (msg.agentRole === 'Скептик' || msg.agentName === 'Skeptic') ? '#fb7185'
+          : '#60a5fa',
+        round: msg.round as number,
+        isJudge: false,
+        message: msg.content as string,
+      }))
+      setMessages(formattedMessages)
+      setMeta({ topic: globalDebate.topic, rounds: globalDebate.rounds, withJudge: !!globalDebate.winner, model: globalDebate.model })
+    }
+
+    setError(null)
+    setCurrentRound(0)
+  }
+
   function handleClearHistory() {
     clearLocalHistory()
     setHistory([])
@@ -542,6 +572,7 @@ export default function App() {
             case 'tournament_end':
               setTournamentChampion(event.champion)
               setTournamentStatus(event.status)
+              loadTournamentHistory().then(setTournamentHistory)
               break
 
             case 'error':
@@ -708,6 +739,11 @@ export default function App() {
               ))}
             </section>
           )}
+
+          <TournamentArchive
+            tournaments={tournamentHistory}
+            onSelectTournament={openTournamentItem}
+          />
         </>
       )}
 

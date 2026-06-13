@@ -326,6 +326,25 @@ export class GlobalMemoryManager {
     this.save()
   }
   
+  // Получение турниров (дебаты с темой "Tournament: ...")
+  getTournamentDebates(limit = 50) {
+    if (!this.db) return []
+
+    const rows = this.db.exec(`
+      SELECT id, topic, created_at, provider, model, rounds, winner
+      FROM debates
+      WHERE topic LIKE 'Tournament: %'
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `)
+
+    if (!rows.length || !rows[0].values) return []
+
+    return rows[0].values.map(([id, topic, createdAt, provider, model, rounds, winner]) => ({
+      id, topic: topic.replace(/^Tournament:\s*/, ''), createdAt, provider, model, rounds, winner
+    }))
+  }
+
   // Получение всех дебатов для истории
   getAllDebates(limit = 50) {
     if (!this.db) return []

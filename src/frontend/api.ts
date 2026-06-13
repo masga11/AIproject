@@ -33,6 +33,16 @@ export async function loadGlobalHistory(): Promise<GlobalDebateEntry[]> {
   }
 }
 
+export async function loadTournamentHistory(): Promise<GlobalDebateEntry[]> {
+  try {
+    const res = await fetch('/api/memory/tournaments?limit=50')
+    const data = await res.json()
+    return data.tournaments || []
+  } catch {
+    return []
+  }
+}
+
 export async function loadGlobalDebate(id: string) {
   try {
     const res = await fetch(`/api/memory/debate/${id}`)

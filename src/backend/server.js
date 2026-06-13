@@ -445,6 +445,14 @@ app.get('/memory/history', async (req, res) => {
   res.json({ debates })
 })
 
+// Эндпоинт для получения истории турниров
+app.get('/memory/tournaments', async (req, res) => {
+  const limit = parseInt(req.query.limit || '50', 10)
+  await globalMemory.init()
+  const tournaments = globalMemory.getTournamentDebates(limit)
+  res.json({ tournaments })
+})
+
 // Эндпоинт для получения полного дебата по ID
 app.get('/memory/debate/:id', async (req, res) => {
   await globalMemory.init()
