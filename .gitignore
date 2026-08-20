@@ -2,44 +2,44 @@
 # Build artifacts
 dist/
 build/
-*.js
+*.o
+*.obj
+*.out
 
 # Dependencies
 node_modules/
+.venv/
+venv/
+__pycache__/
+*.egg-info/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
 
 # Environment
 .env
 .env.local
 *.env.*
 
-# Logs
-*.log
-
 # Editors
 .vscode/
 .idea/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Temporary files
-*.tmp
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Coverage
+# Coverage reports
 coverage/
 htmlcov/
 .coverage
 
-# Compression
+# OS files
+.DS_Store
+Thumbs.db
+
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -58,8 +58,4 @@ htmlcov/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
 ```

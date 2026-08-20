@@ -28,7 +28,8 @@ interface DebateSettingsProps {
   onAgentTempsChange: (v: number[]) => void
   agentProviders: string[]
   onAgentProvidersChange: (v: string[]) => void
-  providerName: string
+  provider: { name: string }
+  onProviderChange: (v: { name: string }) => void
   loading: boolean
   onStart: () => void
   onStop: () => void
@@ -56,7 +57,8 @@ export function DebateSettings({
   onAgentTempsChange,
   agentProviders,
   onAgentProvidersChange,
-  providerName,
+  provider,
+  onProviderChange,
   loading,
   onStart,
   onStop,
@@ -124,6 +126,31 @@ export function DebateSettings({
       </div>
 
       <div className="settings">
+        <label className="setting">
+          <span>Провайдер моделей</span>
+          <select
+            className="select"
+            value={provider.name}
+            disabled={loading}
+            onChange={(e) => {
+              setProvider({ name: e.target.value })
+              setModelOptions([])
+              refreshModels()
+            }}
+          >
+            <option value="ollama">Ollama (локально)</option>
+            <option value="groq">Groq Cloud</option>
+            <option value="lmstudio">LM Studio (локально)</option>
+            <option value="mistral">Mistral AI</option>
+          </select>
+          <span className="setting-hint">
+            {provider.name === 'ollama' && 'Локальные модели через Ollama'}
+            {provider.name === 'groq' && 'Облачные модели Groq (быстро)'}
+            {provider.name === 'lmstudio' && 'Локальные модели из LM Studio'}
+            {provider.name === 'mistral' && 'Облачные модели Mistral AI'}
+          </span>
+        </label>
+
         <div className="setting">
           <span>Количество агентов</span>
           <div className="agent-count-controls">
@@ -204,7 +231,7 @@ export function DebateSettings({
                   <option key={option.id} value={option.id}>{option.label}</option>
                 ))}
               </select>
-              {providerName === 'lmstudio' && onRefreshModels && (
+              {provider.name === 'lmstudio' && onRefreshModels && (
                 <button
                   type="button"
                   className="chip"
@@ -246,7 +273,7 @@ export function DebateSettings({
             onAgentProvidersChange={onAgentProvidersChange}
             modelOptions={modelOptions}
             model={model}
-            providerName={providerName}
+            providerName={provider.name}
             loading={loading}
           />
         )}
@@ -335,7 +362,7 @@ function AgentAdvancedSettings({
                   onChange={(e) => { const p = [...agentProviders]; p[index] = e.target.value; onAgentProvidersChange(p) }}
                   style={{ fontSize: '12px', padding: '4px' }}
                 >
-                  <option value="">Как общий ({providerName === 'groq' ? 'Groq' : providerName === 'mistral' ? 'Mistral' : 'Ollama'})</option>
+                  <option value="">Как общий ({provider.name === 'groq' ? 'Groq' : provider.name === 'mistral' ? 'Mistral' : 'Ollama'})</option>
                   <option value="ollama">Ollama (локально)</option>
                   <option value="groq">Groq (облако)</option>
                   <option value="mistral">Mistral AI (облако)</option>
