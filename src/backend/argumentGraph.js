@@ -1,5 +1,5 @@
 // Анализ аргументов и построение графа связей
-import { globalMemory } from './globalMemory.js'
+import { globalMemory } from './memory/globalMemory.js'
 
 export class ArgumentGraphBuilder {
   constructor() {

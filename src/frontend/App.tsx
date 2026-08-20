@@ -54,6 +54,8 @@ export default function App() {
   const [agentTemps, setAgentTemps] = useState<number[]>([0.8, 0.8])
   const [agentProviders, setAgentProviders] = useState<string[]>(['', ''])
   const [provider, setProvider] = useState({ name: 'ollama' })
+  const [apiKey, setApiKey] = useState('')
+  const [lmStudioUrl, setLmStudioUrl] = useState('http://localhost:1234/v1')
   const [customAgentStats, setCustomAgentStats] = useState<AgentStats | null>(null)
   const [exportFormat, setExportFormat] = useState<'markdown' | 'json'>('markdown')
   const [pdfStyle, setPdfStyle] = useState<'minimal' | 'detailed'>('minimal')
@@ -332,6 +334,10 @@ export default function App() {
       }
 
       if (model) params.set('model', model)
+
+      // Передаём API ключ и URL на бэкенд
+      if (apiKey) params.set('apiKey', apiKey)
+      if (lmStudioUrl && provider.name === 'lmstudio') params.set('lmStudioUrl', lmStudioUrl)
 
       for (let i = 0; i < selectedAgents.length; i++) {
         if (agentModels[i]) params.set(`agent${i}Model`, agentModels[i])
@@ -655,6 +661,10 @@ export default function App() {
         onAgentProvidersChange={setAgentProviders}
         provider={provider}
         onProviderChange={setProvider}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
+        lmStudioUrl={lmStudioUrl}
+        onLmStudioUrlChange={setLmStudioUrl}
         loading={loading}
         onStart={runDebate}
         onStop={stopDebate}

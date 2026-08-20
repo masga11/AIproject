@@ -30,6 +30,10 @@ interface DebateSettingsProps {
   onAgentProvidersChange: (v: string[]) => void
   provider: { name: string }
   onProviderChange: (v: { name: string }) => void
+  apiKey: string
+  onApiKeyChange: (v: string) => void
+  lmStudioUrl: string
+  onLmStudioUrlChange: (v: string) => void
   loading: boolean
   onStart: () => void
   onStop: () => void
@@ -59,6 +63,10 @@ export function DebateSettings({
   onAgentProvidersChange,
   provider,
   onProviderChange,
+  apiKey,
+  onApiKeyChange,
+  lmStudioUrl,
+  onLmStudioUrlChange,
   loading,
   onStart,
   onStop,
@@ -150,6 +158,39 @@ export function DebateSettings({
             {provider.name === 'mistral' && 'Облачные модели Mistral AI'}
           </span>
         </label>
+
+        {(provider.name === 'groq' || provider.name === 'mistral') && (
+          <label className="setting">
+            <span>API ключ</span>
+            <input
+              type="password"
+              className="input"
+              value={apiKey}
+              disabled={loading}
+              onChange={(e) => onApiKeyChange(e.target.value)}
+              placeholder={provider.name === 'groq' ? 'gsk_...' : 'eyJ...'}
+            />
+            <span className="setting-hint">
+              {provider.name === 'groq' && 'Получите ключ на console.groq.com'}
+              {provider.name === 'mistral' && 'Получите ключ на console.mistral.ai'}
+            </span>
+          </label>
+        )}
+
+        {provider.name === 'lmstudio' && (
+          <label className="setting">
+            <span>URL сервера LM Studio</span>
+            <input
+              type="text"
+              className="input"
+              value={lmStudioUrl}
+              disabled={loading}
+              onChange={(e) => onLmStudioUrlChange(e.target.value)}
+              placeholder="http://localhost:1234/v1"
+            />
+            <span className="setting-hint">Адрес локального сервера LM Studio</span>
+          </label>
+        )}
 
         <div className="setting">
           <span>Количество агентов</span>

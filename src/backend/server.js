@@ -269,6 +269,8 @@ app.get('/autonomous-debate-stream', async (req, res) => {
   const rounds = clampRounds(req.query.rounds)
   const withJudge = parseWithJudge(req.query.withJudge ?? '1')
   const model = (req.query.model || '').trim()
+  const apiKey = (req.query.apiKey || '').trim()
+  const lmStudioUrl = (req.query.lmStudioUrl || '').trim()
   
   // Поддержка множественных агентов через agent[]=id1&agent[]=id2...
   const agentIds = req.query.agents 
@@ -284,6 +286,20 @@ app.get('/autonomous-debate-stream', async (req, res) => {
     agentModels.push((req.query[`agent${i}Model`] || model || '').trim())
     agentTemps.push(parseFloat(req.query[`agent${i}Temp`] || '0.8'))
     agentProviders.push((req.query[`agent${i}Provider`] || provider.name).trim())
+  }
+
+  // Переинициализация клиента с API ключом из интерфейса если предоставлен
+  let debateClient = client
+  if (!debateClient && apiKey && (provider.name === 'groq' || provider.name === 'mistral')) {
+    debateClient = new OpenAI({
+      baseURL: provider.name === 'mistral' ? 'https://api.mistral.ai/v1' : undefined,
+      apiKey,
+    })
+  } else if (provider.name === 'lmstudio' && lmStudioUrl) {
+    debateClient = new OpenAI({
+      baseURL: lmStudioUrl,
+      apiKey: 'not-needed',
+    })
   }
 
   // Получаем пользовательских агентов
