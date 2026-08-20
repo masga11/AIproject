@@ -29,6 +29,14 @@ export const GROQ_MODEL_PRESETS = [
   },
 ]
 
+export const LMSTUDIO_MODEL_PRESETS = [
+  {
+    id: 'auto',
+    label: 'Авто (из LM Studio)',
+    hint: 'Модель будет выбрана из запущенной в LM Studio',
+  },
+]
+
 export const PROVIDERS = {
   groq: {
     name: 'groq',
@@ -44,6 +52,13 @@ export const PROVIDERS = {
     model: process.env.OLLAMA_MODEL || 'llama3.2:3b',
     needsKey: false,
   },
+  lmstudio: {
+    name: 'lmstudio',
+    label: 'LM Studio (локально)',
+    baseURL: process.env.LMSTUDIO_BASE_URL || 'http://localhost:1234/v1',
+    model: 'auto',
+    needsKey: false,
+  },
 }
 
 export function resolveProvider() {
@@ -57,12 +72,17 @@ export function resolveProvider() {
     return buildProviderConfig('groq')
   }
 
+  // Проверяем LM Studio перед Ollama
+  if (process.env.LLM_PROVIDER === 'lmstudio' || process.env.USE_LMSTUDIO === 'true') {
+    return buildProviderConfig('lmstudio')
+  }
+
   return buildProviderConfig('ollama')
 }
 
 function buildProviderConfig(name) {
   const provider = PROVIDERS[name]
-  const apiKey = name === 'groq' ? process.env.GROQ_API_KEY : 'ollama'
+  const apiKey = name === 'groq' ? process.env.GROQ_API_KEY : (name === 'lmstudio' ? 'lmstudio' : 'ollama')
 
   return {
     ...provider,
@@ -73,6 +93,7 @@ function buildProviderConfig(name) {
 
 export function getModelPresets(providerName) {
   if (providerName === 'groq') return GROQ_MODEL_PRESETS
+  if (providerName === 'lmstudio') return LMSTUDIO_MODEL_PRESETS
   return OLLAMA_MODEL_PRESETS
 }
 
@@ -83,7 +104,11 @@ export function resolveModel(providerName, modelOverride) {
 
   if (!requested) return fallback
 
+  // Для LM Studio 'auto' означает использование загруженной модели
+  if (providerName === 'lmstudio' && requested === 'auto') return ''
+
   const allowed = presets.some((preset) => preset.id === requested)
+
   return allowed ? requested : fallback
 }
 
