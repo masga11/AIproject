@@ -62,8 +62,12 @@ function formatApiError(err) {
     return 'Ollama не запущена. Установите Ollama, выполните «ollama pull llama3.2:3b» и запустите приложение Ollama.'
   }
 
+  if (provider.name === 'lmstudio' && (message.includes('ECONNREFUSED') || message.includes('fetch failed'))) {
+    return 'LM Studio не запущен. Запустите LM Studio, загрузите модель и включите локальный сервер на порту 1234.'
+  }
+
   if (message.includes('not found') || message.includes('404')) {
-    return 'Модель не найдена в Ollama. Скачайте её: ollama pull <имя_модели>'
+    return 'Модель не найдена. Проверьте название модели или загрузите её.'
   }
 
   return message
@@ -243,8 +247,8 @@ app.get('/autonomous-debate-stream', async (req, res) => {
   // Создаём конфигурации агентов с индивидуальными настройками
   const buildAgentConfig = (agentId, customModel, customTemp, customProvider) => {
     const baseAgent = getAgentByIdWithCustom(agentId, customAgents)
-    const effectiveModel = customModel || model || resolveModel(customProvider, null)
     const effectiveProvider = customProvider || provider.name
+    const effectiveModel = customModel || model || resolveModel(effectiveProvider, null)
     
     return {
       ...baseAgent,
@@ -258,7 +262,9 @@ app.get('/autonomous-debate-stream', async (req, res) => {
     buildAgentConfig(id, agentModels[i], agentTemps[i], agentProviders[i])
   )
   
-  const judge = getJudgeForProvider(provider.name, model)
+  const judgeProvider = agentProviders[0] || provider.name
+  const judgeModel = agentModels[0] || model
+  const judge = getJudgeForProvider(judgeProvider, judgeModel)
 
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
