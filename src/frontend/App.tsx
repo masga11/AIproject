@@ -88,6 +88,21 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [loading])
 
+  async function refreshModels() {
+    try {
+      const data = await fetchAgents()
+      if (data.models?.length) {
+        setModelOptions(data.models)
+        if (!model || !data.models.find(m => m.id === model)) {
+          setModel(data.model || data.models[0].id)
+        }
+      }
+      if (data.provider) setProvider({ name: data.provider })
+    } catch (err) {
+      setError('Не удалось обновить список моделей')
+    }
+  }
+
   useEffect(() => {
     setHistory(loadHistory())
 
@@ -639,6 +654,7 @@ export default function App() {
         loading={loading}
         onStart={runDebate}
         onStop={stopDebate}
+        onRefreshModels={provider.name === 'lmstudio' ? refreshModels : undefined}
       />
 
       {error && <div className="error">{error}</div>}

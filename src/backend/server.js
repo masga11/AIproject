@@ -138,6 +138,24 @@ app.get('/agents', async (_req, res) => {
   await customAgentManager.init()
   const customAgents = customAgentManager.getAllActiveAgents()
   
+  // Для LM Studio получаем список доступных моделей
+  let models = getModelPresets(provider.name)
+  if (provider.name === 'lmstudio' && client) {
+    try {
+      const response = await client.models.list()
+      const lmStudioModels = response.data.map(m => ({
+        id: m.id,
+        label: m.id.split('/').pop() || m.id,
+        hint: 'Локальная модель из LM Studio'
+      }))
+      if (lmStudioModels.length > 0) {
+        models = lmStudioModels
+      }
+    } catch (err) {
+      console.warn('[LM Studio] Не удалось получить список моделей:', err.message)
+    }
+  }
+  
   res.json({
     agents: defaultAgents,
     allAgents: getAvailableAgents(customAgents),
@@ -147,7 +165,7 @@ app.get('/agents', async (_req, res) => {
     maxRounds: MAX_ROUNDS,
     provider: provider.name,
     model: provider.model,
-    models: getModelPresets(provider.name),
+    models,
   })
 })
 

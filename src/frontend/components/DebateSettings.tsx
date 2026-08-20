@@ -32,6 +32,7 @@ interface DebateSettingsProps {
   loading: boolean
   onStart: () => void
   onStop: () => void
+  onRefreshModels?: () => void
 }
 
 export function DebateSettings({
@@ -59,6 +60,7 @@ export function DebateSettings({
   loading,
   onStart,
   onStop,
+  onRefreshModels,
 }: DebateSettingsProps) {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -190,16 +192,31 @@ export function DebateSettings({
         {modelOptions.length > 0 && (
           <label className="setting">
             <span>Модель (общая)</span>
-            <select
-              className="select"
-              value={model}
-              disabled={loading}
-              onChange={(e) => onModelChange(e.target.value)}
-            >
-              {modelOptions.map((option) => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <select
+                className="select"
+                value={model}
+                disabled={loading}
+                onChange={(e) => onModelChange(e.target.value)}
+                style={{ flex: 1 }}
+              >
+                {modelOptions.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
+              {providerName === 'lmstudio' && onRefreshModels && (
+                <button
+                  type="button"
+                  className="chip"
+                  disabled={loading}
+                  onClick={onRefreshModels}
+                  title="Обновить список моделей из LM Studio"
+                  style={{ padding: '4px 8px', fontSize: '12px' }}
+                >
+                  🔄
+                </button>
+              )}
+            </div>
             <span className="setting-hint">
               {modelOptions.find((option) => option.id === model)?.hint}
             </span>

@@ -30,11 +30,7 @@ export const GROQ_MODEL_PRESETS = [
 ]
 
 export const LMSTUDIO_MODEL_PRESETS = [
-  {
-    id: 'auto',
-    label: 'Авто (из LM Studio)',
-    hint: 'Модель будет выбрана из запущенной в LM Studio',
-  },
+  // Пустой массив - модели будут загружены динамически из LM Studio
 ]
 
 export const PROVIDERS = {
@@ -104,8 +100,8 @@ export function resolveModel(providerName, modelOverride) {
 
   if (!requested) return fallback
 
-  // Для LM Studio 'auto' означает использование загруженной модели
-  if (providerName === 'lmstudio' && requested === 'auto') return ''
+  // Для LM Studio пустая строка означает использование первой доступной модели
+  if (providerName === 'lmstudio' && !requested) return ''
 
   const allowed = presets.some((preset) => preset.id === requested)
 
