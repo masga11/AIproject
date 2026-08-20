@@ -37,7 +37,7 @@ interface DebateSettingsProps {
   loading: boolean
   onStart: () => void
   onStop: () => void
-  onRefreshModels?: () => void
+  onRefreshModels: () => void
 }
 
 export function DebateSettings({
@@ -141,9 +141,9 @@ export function DebateSettings({
             value={provider.name}
             disabled={loading}
             onChange={(e) => {
-              setProvider({ name: e.target.value })
+              onProviderChange({ name: e.target.value })
               setModelOptions([])
-              refreshModels()
+              onRefreshModels()
             }}
           >
             <option value="ollama">Ollama (локально)</option>
