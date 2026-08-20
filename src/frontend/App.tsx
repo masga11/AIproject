@@ -12,6 +12,7 @@ import {
   fetchMemoryStats,
   fetchAnalytics,
   fetchCustomAgentStats,
+  loadArgumentGraph,
 } from './api'
 import { Header } from './components/Header'
 import { DebateSettings } from './components/DebateSettings'
@@ -47,6 +48,8 @@ export default function App() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>(['philosopher', 'skeptic'])
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
+  const [showArgumentGraph, setShowArgumentGraph] = useState(false)
+  const [argumentGraphData, setArgumentGraphData] = useState<any>(null)
   const [agentModels, setAgentModels] = useState<string[]>(['', ''])
   const [agentTemps, setAgentTemps] = useState<number[]>([0.8, 0.8])
   const [agentProviders, setAgentProviders] = useState<string[]>(['', ''])
@@ -87,6 +90,21 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [loading])
+
+  async function refreshModels() {
+    try {
+      const data = await fetchAgents()
+      if (data.models?.length) {
+        setModelOptions(data.models)
+        if (!model || !data.models.find(m => m.id === model)) {
+          setModel(data.model || data.models[0].id)
+        }
+      }
+      if (data.provider) setProvider({ name: data.provider })
+    } catch (err) {
+      setError('Не удалось обновить список моделей')
+    }
+  }
 
   useEffect(() => {
     setHistory(loadHistory())
@@ -639,6 +657,7 @@ export default function App() {
         loading={loading}
         onStart={runDebate}
         onStop={stopDebate}
+        onRefreshModels={provider.name === 'lmstudio' ? refreshModels : undefined}
       />
 
       {error && <div className="error">{error}</div>}
@@ -672,6 +691,12 @@ export default function App() {
             <option value="minimal">Минимализм</option>
             <option value="detailed">Детальный</option>
           </select>
+          
+          {meta?.debateId && (
+            <button type="button" className="secondary" onClick={() => setShowArgumentGraph(true)}>
+              🔗 Граф аргументов
+            </button>
+          )}
         </div>
       )}
 
