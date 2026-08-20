@@ -164,8 +164,24 @@ app.get('/agents', async (_req, res) => {
       console.warn('[LM Studio] Не удалось получить список моделей:', err.message)
     }
   } else if (provider.name === 'mistral' && client) {
-    // Для Mistral используем статический список из presets
-    models = getModelPresets('mistral')
+    // Для Mistral динамически получаем список моделей через API
+    try {
+      const response = await client.models.list()
+      const mistralModels = response.data
+        .filter(m => m.id.includes('mistral') || m.id.includes('open-mistral') || m.id.includes('open-mixtral'))
+        .map(m => ({
+          id: m.id,
+          label: m.id.replace('mistral-', '').replace('-latest', '').toUpperCase(),
+          hint: 'Облачная модель Mistral AI'
+        }))
+      if (mistralModels.length > 0) {
+        models = mistralModels
+      }
+    } catch (err) {
+      console.warn('[Mistral] Не удалось получить список моделей:', err.message)
+      // Fallback на статический список
+      models = getModelPresets('mistral')
+    }
   }
   
   res.json({

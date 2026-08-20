@@ -653,7 +653,8 @@ export default function App() {
         onAgentTempsChange={setAgentTemps}
         agentProviders={agentProviders}
         onAgentProvidersChange={setAgentProviders}
-        providerName={provider.name}
+        provider={provider}
+        onProviderChange={setProvider}
         loading={loading}
         onStart={runDebate}
         onStop={stopDebate}
