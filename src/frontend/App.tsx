@@ -12,6 +12,7 @@ import {
   fetchMemoryStats,
   fetchAnalytics,
   fetchCustomAgentStats,
+  loadArgumentGraph,
 } from './api'
 import { Header } from './components/Header'
 import { DebateSettings } from './components/DebateSettings'
@@ -47,6 +48,8 @@ export default function App() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>(['philosopher', 'skeptic'])
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
+  const [showArgumentGraph, setShowArgumentGraph] = useState(false)
+  const [argumentGraphData, setArgumentGraphData] = useState<any>(null)
   const [agentModels, setAgentModels] = useState<string[]>(['', ''])
   const [agentTemps, setAgentTemps] = useState<number[]>([0.8, 0.8])
   const [agentProviders, setAgentProviders] = useState<string[]>(['', ''])
@@ -688,6 +691,12 @@ export default function App() {
             <option value="minimal">Минимализм</option>
             <option value="detailed">Детальный</option>
           </select>
+          
+          {meta?.debateId && (
+            <button type="button" className="secondary" onClick={() => setShowArgumentGraph(true)}>
+              🔗 Граф аргументов
+            </button>
+          )}
         </div>
       )}
 

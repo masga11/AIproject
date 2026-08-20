@@ -73,6 +73,21 @@ export async function fetchCustomAgentStats() {
   return res.json()
 }
 
+export async function loadArgumentGraph(debateId: string) {
+  try {
+    const res = await fetch(`/api/memory/debate/${debateId}/graph`)
+    if (!res.ok) {
+      const error = await res.json()
+      throw new Error(error.error || 'Ошибка загрузки графа')
+    }
+    const data = await res.json()
+    return data
+  } catch (err) {
+    console.error('[API] Ошибка загрузки графа аргументов:', err)
+    throw err
+  }
+}
+
 export async function createCustomAgent(agent: { name: string; role: string; systemPrompt: string; color: string }) {
   const res = await fetch('/api/custom-agents', {
     method: 'POST',

@@ -81,6 +81,36 @@ export class GlobalMemoryManager {
       )
     `)
 
+    // Таблица узлов графа аргументов
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS argument_nodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        debate_id TEXT NOT NULL,
+        node_id TEXT NOT NULL,
+        label TEXT NOT NULL,
+        type TEXT NOT NULL,
+        agent TEXT NOT NULL,
+        round INTEGER NOT NULL,
+        sentiment REAL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        UNIQUE(debate_id, node_id)
+      )
+    `)
+
+    // Таблица связей графа аргументов
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS argument_edges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        debate_id TEXT NOT NULL,
+        from_node TEXT NOT NULL,
+        to_node TEXT NOT NULL,
+        type TEXT NOT NULL,
+        weight REAL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        UNIQUE(debate_id, from_node, to_node)
+      )
+    `)
+
     // Индексы для поиска
     this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_messages_debate ON messages(debate_id)
@@ -90,6 +120,12 @@ export class GlobalMemoryManager {
     `)
     this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_knowledge_type ON knowledge_fragments(fragment_type)
+    `)
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_arg_nodes_debate ON argument_nodes(debate_id)
+    `)
+    this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_arg_edges_debate ON argument_edges(debate_id)
     `)
 
     this.initialized = true
@@ -172,6 +208,82 @@ export class GlobalMemoryManager {
     
     // Знания сохраняем сразу - они важны
     this.save()
+  }
+
+  // Сохранение графа аргументов
+  saveArgumentGraph(debateId, nodes, edges) {
+    if (!this.db) throw new Error('GlobalMemory не инициализирована')
+
+    const createdAt = Date.now()
+
+    try {
+      // Сохраняем узлы
+      for (const node of nodes) {
+        this.db.run(
+          `INSERT OR REPLACE INTO argument_nodes 
+           (debate_id, node_id, label, type, agent, round, sentiment, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [debateId, node.id, node.label, node.type, node.agent, node.round, node.sentiment || 0, createdAt]
+        )
+      }
+
+      // Сохраняем связи
+      for (const edge of edges) {
+        this.db.run(
+          `INSERT OR REPLACE INTO argument_edges 
+           (debate_id, from_node, to_node, type, weight, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [debateId, edge.from, edge.to, edge.type, edge.weight, createdAt]
+        )
+      }
+
+      console.log(`[GlobalMemory] Сохранено ${nodes.length} узлов и ${edges.length} связей графа`)
+      this.save()
+    } catch (err) {
+      console.error('[GlobalMemory] Ошибка сохранения графа:', err.message)
+    }
+  }
+
+  // Загрузка графа аргументов
+  getArgumentGraph(debateId) {
+    if (!this.db) return { nodes: [], edges: [] }
+
+    try {
+      const nodesResult = this.db.exec(
+        'SELECT * FROM argument_nodes WHERE debate_id = ? ORDER BY round, node_id',
+        [debateId]
+      )
+
+      const edgesResult = this.db.exec(
+        'SELECT * FROM argument_edges WHERE debate_id = ? ORDER BY from_node',
+        [debateId]
+      )
+
+      const nodes = nodesResult.length > 0 && nodesResult[0].values
+        ? nodesResult[0].values.map(row => ({
+            id: row[2], // node_id
+            label: row[3],
+            type: row[4],
+            agent: row[5],
+            round: row[6],
+            sentiment: row[7],
+          }))
+        : []
+
+      const edges = edgesResult.length > 0 && edgesResult[0].values
+        ? edgesResult[0].values.map(row => ({
+            from: row[2],
+            to: row[3],
+            type: row[4],
+            weight: row[5],
+          }))
+        : []
+
+      return { nodes, edges }
+    } catch (err) {
+      console.error('[GlobalMemory] Ошибка загрузки графа:', err.message)
+      return { nodes: [], edges: [] }
+    }
   }
 
   // Извлечение знаний из дебата (вызывается после судейского вердикта)
@@ -401,17 +513,22 @@ export class GlobalMemoryManager {
       totalDebates: 0, 
       totalMessages: 0, 
       totalKnowledge: 0,
+      totalArgumentNodes: 0,
+      totalArgumentEdges: 0,
       winRate: {},
       agentParticipation: {},
       avgRounds: 0,
       debatesByProvider: {},
-      recentActivity: []
+      recentActivity: [],
+      argumentStats: {}
     }
 
     // Базовая статистика
     const debates = this.db.exec('SELECT COUNT(*) FROM debates')
     const messages = this.db.exec('SELECT COUNT(*) FROM messages')
     const knowledge = this.db.exec('SELECT COUNT(*) FROM knowledge_fragments')
+    const argNodes = this.db.exec('SELECT COUNT(*) FROM argument_nodes')
+    const argEdges = this.db.exec('SELECT COUNT(*) FROM argument_edges')
 
     // Win rate по агентам
     const winRateRows = this.db.exec(`
@@ -459,21 +576,46 @@ export class GlobalMemoryManager {
       }
     }
 
-    // Недавняя активность (последние 7 дней)
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000)
+    // Статистика аргументов по типам
+    const argTypeRows = this.db.exec(`
+      SELECT type, COUNT(*) as count
+      FROM argument_nodes
+      GROUP BY type
+    `)
+    const argumentStats = { byType: {}, byAgent: {}, avgSentiment: 0 }
+    if (argTypeRows.length && argTypeRows[0].values) {
+      for (const [type, count] of argTypeRows[0].values) {
+        argumentStats.byType[type] = count
+      }
+    }
+
+    // Аргументы по агентам
+    const argAgentRows = this.db.exec(`
+      SELECT agent, COUNT(*) as count
+      FROM argument_nodes
+      GROUP BY agent
+    `)
+    if (argAgentRows.length && argAgentRows[0].values) {
+      for (const [agent, count] of argAgentRows[0].values) {
+        argumentStats.byAgent[agent] = count
+      }
+    }
+
+    // Средний сентимент
+    const sentimentRows = this.db.exec('SELECT AVG(sentiment) FROM argument_nodes')
+    argumentStats.avgSentiment = sentimentRows[0]?.values?.[0]?.[0] || 0
+
+    // Недавняя активность
     const recentRows = this.db.exec(`
-      SELECT DATE(created_at / 1000, 'unixepoch') as date, COUNT(*) as count
+      SELECT id, topic, created_at, winner
       FROM debates
-      WHERE created_at >= ?
-      GROUP BY date
-      ORDER BY date DESC
-      LIMIT 7
-    `, [sevenDaysAgo])
-    
+      ORDER BY created_at DESC
+      LIMIT 10
+    `)
     const recentActivity = []
     if (recentRows.length && recentRows[0].values) {
-      for (const [date, count] of recentRows[0].values) {
-        recentActivity.push({ date, count })
+      for (const [id, topic, createdAt, winner] of recentRows[0].values) {
+        recentActivity.push({ id, topic, createdAt, winner })
       }
     }
 
@@ -481,12 +623,20 @@ export class GlobalMemoryManager {
       totalDebates: debates[0]?.values?.[0]?.[0] || 0,
       totalMessages: messages[0]?.values?.[0]?.[0] || 0,
       totalKnowledge: knowledge[0]?.values?.[0]?.[0] || 0,
+      totalArgumentNodes: argNodes[0]?.values?.[0]?.[0] || 0,
+      totalArgumentEdges: argEdges[0]?.values?.[0]?.[0] || 0,
       winRate,
       agentParticipation,
-      avgRounds: Math.round(avgRounds * 100) / 100,
+      avgRounds,
       debatesByProvider,
-      recentActivity
+      recentActivity,
+      argumentStats,
     }
+  }
+
+  // Получение графа аргументов для конкретного дебата (публичный метод)
+  getDebateArgumentGraph(debateId) {
+    return this.getArgumentGraph(debateId)
   }
 }
 

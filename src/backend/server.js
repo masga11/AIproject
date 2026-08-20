@@ -23,6 +23,7 @@ import { getAgentsForProvider, getJudgeForProvider, getModelPresets, getAvailabl
 import { globalMemory } from './memory/globalMemory.js'
 import { customAgentManager } from './memory/customAgentManager.js'
 import { createTournamentBracket, runTournamentMatch } from './tournament.js'
+import { ArgumentGraphBuilder, saveArgumentGraph, loadArgumentGraph } from './argumentGraph.js'
 
 const PORT = process.env.PORT || 3002
 const app = express()
@@ -487,6 +488,30 @@ app.get('/autonomous-debate-stream', async (req, res) => {
         }).catch(err => {
           console.error('[GlobalMemory] Ошибка при извлечении знаний:', err)
         })
+        
+        // Строим граф аргументов (асинхронно)
+        (async () => {
+          try {
+            const graphBuilder = new ArgumentGraphBuilder()
+            const model = agents[0].model || provider.model
+            
+            await graphBuilder.buildFromDebate(client, model, {
+              messages: session.memory.recall().map(m => ({
+                agent: m.agent,
+                round: m.round,
+                text: m.text,
+              })),
+              topic: session.topic,
+            }, session.topic)
+            
+            const graphData = graphBuilder.exportForVis()
+            saveArgumentGraph(session.debateId, graphData)
+            
+            console.log(`[ArgumentGraph] Построен граф: ${graphData.nodes.length} узлов, ${graphData.edges.length} связей`)
+          } catch (err) {
+            console.error('[ArgumentGraph] Ошибка построения:', err.message)
+          }
+        })()
       }
     }
 
@@ -553,6 +578,64 @@ app.get('/memory/analytics', async (_req, res) => {
   await globalMemory.init()
   res.json({
     analytics: globalMemory.getAnalytics(),
+  })
+})
+
+// Эндпоинт для получения графа аргументов дебата
+app.get('/memory/debate/:id/graph', async (req, res) => {
+  await globalMemory.init()
+  const debate = globalMemory.getDebateWithMessages(req.params.id)
+  
+  if (!debate) {
+    return res.status(404).json({ error: 'Дебат не найден' })
+  }
+  
+  // Проверяем, есть ли уже сохранённый граф
+  let graphData = globalMemory.getArgumentGraph(req.params.id)
+  
+  // Если графа нет или он пустой, строим новый
+  if (!graphData.nodes || graphData.nodes.length === 0) {
+    if (!client) {
+      return res.status(503).json({ error: 'LLM клиент не доступен для построения графа' })
+    }
+    
+    try {
+      const graphBuilder = new ArgumentGraphBuilder()
+      const model = debate.model || provider.model
+      
+      // Строим граф из сообщений дебата
+      await graphBuilder.buildFromDebate(client, model, debate, debate.topic)
+      
+      graphData = graphBuilder.exportForVis()
+      
+      // Сохраняем граф в память
+      saveArgumentGraph(req.params.id, graphData)
+    } catch (err) {
+      console.error('[Graph API] Ошибка построения графа:', err.message)
+      return res.status(500).json({ error: 'Ошибка построения графа: ' + err.message })
+    }
+  }
+  
+  // Получаем статистику
+  const stats = {
+    totalNodes: graphData.nodes?.length || 0,
+    totalEdges: graphData.edges?.length || 0,
+    byType: {},
+    avgSentiment: 0,
+  }
+  
+  if (graphData.nodes && graphData.nodes.length > 0) {
+    for (const node of graphData.nodes) {
+      stats.byType[node.type] = (stats.byType[node.type] || 0) + 1
+    }
+    stats.avgSentiment = graphData.nodes.reduce((sum, n) => sum + (n.sentiment || 0), 0) / graphData.nodes.length
+  }
+  
+  res.json({ 
+    graph: graphData,
+    stats,
+    debateId: req.params.id,
+    topic: debate.topic,
   })
 })
 
