@@ -66,6 +66,10 @@ function formatApiError(err) {
   if (provider.name === 'lmstudio' && (message.includes('ECONNREFUSED') || message.includes('fetch failed'))) {
     return 'LM Studio не запущен. Запустите LM Studio, загрузите модель и включите локальный сервер на порту 1234.'
   }
+  
+  if (provider.name === 'mistral' && (message.includes('401') || message.includes('Unauthorized'))) {
+    return 'Неверный API ключ Mistral. Проверьте MISTRAL_API_KEY в .env.'
+  }
 
   if (message.includes('not found') || message.includes('404')) {
     return 'Модель не найдена. Проверьте название модели или загрузите её.'
@@ -77,6 +81,10 @@ function formatApiError(err) {
 function missingProviderMessage() {
   if (provider.name === 'groq') {
     return 'Не задан GROQ_API_KEY. Добавьте ключ в .env или переключитесь на Ollama: LLM_PROVIDER=ollama'
+  }
+  
+  if (provider.name === 'mistral') {
+    return 'Не задан MISTRAL_API_KEY. Добавьте ключ в .env или переключитесь на Ollama: LLM_PROVIDER=ollama'
   }
 
   return 'ИИ-провайдер недоступен. Проверьте настройки в .env.'
@@ -139,7 +147,7 @@ app.get('/agents', async (_req, res) => {
   await customAgentManager.init()
   const customAgents = customAgentManager.getAllActiveAgents()
   
-  // Для LM Studio получаем список доступных моделей
+  // Для LM Studio и Mistral получаем список доступных моделей
   let models = getModelPresets(provider.name)
   if (provider.name === 'lmstudio' && client) {
     try {
@@ -155,6 +163,9 @@ app.get('/agents', async (_req, res) => {
     } catch (err) {
       console.warn('[LM Studio] Не удалось получить список моделей:', err.message)
     }
+  } else if (provider.name === 'mistral' && client) {
+    // Для Mistral используем статический список из presets
+    models = getModelPresets('mistral')
   }
   
   res.json({

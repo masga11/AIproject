@@ -29,6 +29,34 @@ export const GROQ_MODEL_PRESETS = [
   },
 ]
 
+export const MISTRAL_MODEL_PRESETS = [
+  {
+    id: 'mistral-small-latest',
+    label: 'Быстрая (Small)',
+    hint: 'Оптимальная скорость и качество',
+  },
+  {
+    id: 'mistral-medium-latest',
+    label: 'Сбалансированная (Medium)',
+    hint: 'Лучшее соотношение цена/качество',
+  },
+  {
+    id: 'mistral-large-latest',
+    label: 'Умная (Large)',
+    hint: 'Максимальные возможности для сложных задач',
+  },
+  {
+    id: 'open-mistral-7b',
+    label: 'Лёгкая (7B)',
+    hint: 'Базовая модель для простых задач',
+  },
+  {
+    id: 'open-mixtral-8x7b',
+    label: 'MoE (8x7B)',
+    hint: 'Mixture of Experts для разнообразных задач',
+  },
+]
+
 export const LMSTUDIO_MODEL_PRESETS = [
   // Пустой массив - модели будут загружены динамически из LM Studio
 ]
@@ -55,6 +83,13 @@ export const PROVIDERS = {
     model: 'auto',
     needsKey: false,
   },
+  mistral: {
+    name: 'mistral',
+    label: 'Mistral AI',
+    baseURL: 'https://api.mistral.ai/v1',
+    model: 'mistral-small-latest',
+    needsKey: true,
+  },
 }
 
 export function resolveProvider() {
@@ -68,6 +103,11 @@ export function resolveProvider() {
     return buildProviderConfig('groq')
   }
 
+  // Проверяем Mistral перед LM Studio и Ollama
+  if (process.env.MISTRAL_API_KEY) {
+    return buildProviderConfig('mistral')
+  }
+
   // Проверяем LM Studio перед Ollama
   if (process.env.LLM_PROVIDER === 'lmstudio' || process.env.USE_LMSTUDIO === 'true') {
     return buildProviderConfig('lmstudio')
@@ -78,17 +118,28 @@ export function resolveProvider() {
 
 function buildProviderConfig(name) {
   const provider = PROVIDERS[name]
-  const apiKey = name === 'groq' ? process.env.GROQ_API_KEY : (name === 'lmstudio' ? 'lmstudio' : 'ollama')
+  let apiKey
+  
+  if (name === 'groq') {
+    apiKey = process.env.GROQ_API_KEY
+  } else if (name === 'mistral') {
+    apiKey = process.env.MISTRAL_API_KEY
+  } else if (name === 'lmstudio') {
+    apiKey = 'lmstudio'
+  } else {
+    apiKey = 'ollama'
+  }
 
   return {
     ...provider,
     apiKey,
-    ready: name === 'groq' ? Boolean(process.env.GROQ_API_KEY) : true,
+    ready: name === 'groq' ? Boolean(process.env.GROQ_API_KEY) : (name === 'mistral' ? Boolean(process.env.MISTRAL_API_KEY) : true),
   }
 }
 
 export function getModelPresets(providerName) {
   if (providerName === 'groq') return GROQ_MODEL_PRESETS
+  if (providerName === 'mistral') return MISTRAL_MODEL_PRESETS
   if (providerName === 'lmstudio') return LMSTUDIO_MODEL_PRESETS
   return OLLAMA_MODEL_PRESETS
 }
