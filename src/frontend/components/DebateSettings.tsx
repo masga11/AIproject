@@ -335,9 +335,11 @@ function AgentAdvancedSettings({
                   onChange={(e) => { const p = [...agentProviders]; p[index] = e.target.value; onAgentProvidersChange(p) }}
                   style={{ fontSize: '12px', padding: '4px' }}
                 >
-                  <option value="">Как общий ({providerName === 'groq' ? 'Groq' : 'Ollama'})</option>
+                  <option value="">Как общий ({providerName === 'groq' ? 'Groq' : providerName === 'mistral' ? 'Mistral' : 'Ollama'})</option>
                   <option value="ollama">Ollama (локально)</option>
                   <option value="groq">Groq (облако)</option>
+                  <option value="mistral">Mistral AI (облако)</option>
+                  <option value="lmstudio">LM Studio (локально)</option>
                 </select>
               </label>
               <label className="setting" style={{ marginBottom: '8px' }}>
