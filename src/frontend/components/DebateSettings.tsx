@@ -257,7 +257,7 @@ export function DebateSettings({
           </label>
         ))}
 
-        {modelOptions.length > 0 && (
+        {modelOptions.length > 0 && provider.name !== 'lmstudio' && (
           <label className="setting">
             <span>Модель (общая)</span>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -302,7 +302,7 @@ export function DebateSettings({
           </button>
         </div>
 
-        {showAdvanced && modelOptions.length > 0 && (
+        {showAdvanced && modelOptions.length > 0 && providerName !== 'lmstudio' && (
           <AgentAdvancedSettings
             selectedAgents={selectedAgents}
             availableAgents={availableAgents}
@@ -314,7 +314,7 @@ export function DebateSettings({
             onAgentProvidersChange={onAgentProvidersChange}
             modelOptions={modelOptions}
             model={model}
-            providerName={provider.name}
+            providerName={providerName}
             loading={loading}
           />
         )}
