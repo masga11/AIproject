@@ -48,6 +48,8 @@ const client = provider.ready
     })
   : null
 
+let debateClient = client
+
 function sendEvent(res, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`)
 }
@@ -305,7 +307,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
   }
 
   // Переинициализация клиента с API ключом из интерфейса если предоставлен
-  let debateClient = client
+  debateClient = client
   if (!debateClient && apiKey && (provider.name === 'groq' || provider.name === 'mistral')) {
     debateClient = new OpenAI({
       baseURL: provider.name === 'mistral' ? 'https://api.mistral.ai/v1' : undefined,
