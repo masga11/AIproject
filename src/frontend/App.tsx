@@ -95,7 +95,7 @@ export default function App() {
 
   async function refreshModels() {
     try {
-      const data = await fetchAgents()
+      const data = await fetchAgents({ provider: provider.name, apiKey })
       if (data.models?.length) {
         setModelOptions(data.models)
         if (!model || !data.models.find(m => m.id === model)) {
@@ -111,7 +111,7 @@ export default function App() {
   useEffect(() => {
     setHistory(loadHistory())
 
-    fetchAgents()
+    fetchAgents({ provider: provider.name, apiKey })
       .then((data) => {
         if (data.models?.length) {
           setModelOptions(data.models)
@@ -480,7 +480,7 @@ export default function App() {
 
   async function refreshAgents() {
     try {
-      const data = await fetchAgents()
+      const data = await fetchAgents({ provider: provider.name, apiKey })
       if (data.customAgents) setCustomAgents(data.customAgents)
       if (data.allAgents) setAvailableAgents(data.allAgents)
     } catch {}
