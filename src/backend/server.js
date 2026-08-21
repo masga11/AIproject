@@ -360,7 +360,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
     return
   }
 
-  if (!client) {
+  if (!debateClient) {
     sendEvent(res, { type: 'error', message: missingProviderMessage() })
     res.end()
     return
@@ -399,7 +399,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
         })
 
         const answer = await streamAgentReply(
-          client,
+          debateClient,
           agent,
           session.topic,
           session.memory,
@@ -463,7 +463,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
 
       const agentNames = agents.map(a => a.name)
       const verdict = await streamJudgeVerdict(
-        client,
+        debateClient,
         judge,
         session.topic,
         session.memory,
@@ -534,7 +534,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
         }
         
         // Извлекаем знания из дебата (асинхронно, не блокируя поток)
-        extractKnowledgeFragments(client, judge.model, session.topic, 
+        extractKnowledgeFragments(debateClient, judge.model, session.topic, 
           session.memory.recall().map(e => `[${e.agent} (${e.role}), Раунд ${e.round}]: ${e.text}`).join('\n\n'),
           verdict
         ).then(fragments => {
@@ -554,7 +554,7 @@ app.get('/autonomous-debate-stream', async (req, res) => {
             const graphBuilder = new ArgumentGraphBuilder()
             const model = agents[0].model || provider.model
             
-            await graphBuilder.buildFromDebate(client, model, {
+            await graphBuilder.buildFromDebate(debateClient, model, {
               messages: session.memory.recall().map(m => ({
                 agent: m.agent,
                 round: m.round,
@@ -654,7 +654,7 @@ app.get('/memory/debate/:id/graph', async (req, res) => {
   
   // Если графа нет или он пустой, строим новый
   if (!graphData.nodes || graphData.nodes.length === 0) {
-    if (!client) {
+    if (!debateClient) {
       return res.status(503).json({ error: 'LLM клиент не доступен для построения графа' })
     }
     
@@ -663,7 +663,7 @@ app.get('/memory/debate/:id/graph', async (req, res) => {
       const model = debate.model || provider.model
       
       // Строим граф из сообщений дебата
-      await graphBuilder.buildFromDebate(client, model, debate, debate.topic)
+      await graphBuilder.buildFromDebate(debateClient, model, debate, debate.topic)
       
       graphData = graphBuilder.exportForVis()
       
@@ -771,7 +771,7 @@ app.post('/tournament/start', async (req, res) => {
     return res.status(400).json({ error: 'Укажите тему турнира' })
   }
 
-  if (!client) {
+  if (!debateClient) {
     return res.status(503).json({ error: missingProviderMessage() })
   }
 
@@ -832,7 +832,7 @@ app.get('/tournament/:id/stream', async (req, res) => {
         sendEvent(res, { type: 'match_start', matchId: match.id, agent1: match.agent1.name, agent2: match.agent2.name, round: ri + 1 })
 
         const result = await runTournamentMatch(
-          client,
+          debateClient,
           match,
           tournament.topic,
           provider.name,
@@ -897,7 +897,7 @@ app.get('*', (_req, res) => {
 
 const server = app.listen(PORT, () => {
   console.log(`Arena backend started on ${PORT} (${provider.label}, ${provider.model})`)
-  if (!client) {
+  if (!debateClient) {
     console.warn(missingProviderMessage())
   }
 })
