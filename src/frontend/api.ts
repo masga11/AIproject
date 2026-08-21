@@ -53,8 +53,11 @@ export async function loadGlobalDebate(id: string) {
   }
 }
 
-export async function fetchAgents() {
-  const res = await fetch('/api/agents')
+export async function fetchAgents(params?: { provider?: string; apiKey?: string }) {
+  const url = new URL('/api/agents', window.location.origin)
+  if (params?.provider) url.searchParams.set('provider', params.provider)
+  if (params?.apiKey) url.searchParams.set('apiKey', params.apiKey)
+  const res = await fetch(url.toString())
   return res.json()
 }
 

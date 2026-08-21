@@ -19,7 +19,7 @@ import {
   streamJudgeVerdict,
   extractKnowledgeFragments,
 } from './debateEngine.js'
-import { getAgentsForProvider, getJudgeForProvider, getModelPresets, getAvailableAgents, resolveProvider, resolveModel, getAgentsForProviderWithCustom, getAgentByIdWithCustom } from './llmConfig.js'
+import { getAgentsForProvider, getJudgeForProvider, getModelPresets, getAvailableAgents, resolveProvider, resolveModel, getAgentsForProviderWithCustom, getAgentByIdWithCustom, PROVIDERS } from './llmConfig.js'
 import { globalMemory } from './memory/globalMemory.js'
 import { customAgentManager } from './memory/customAgentManager.js'
 import { createTournamentBracket, runTournamentMatch } from './tournament.js'
@@ -143,15 +143,23 @@ app.get('/tts', (req, res) => {
   }
 })
 
-app.get('/agents', async (_req, res) => {
+app.get('/agents', async (req, res) => {
   await customAgentManager.init()
   const customAgents = customAgentManager.getAllActiveAgents()
   
+  // Получаем запрошенный провайдер из query параметра
+  const requestedProvider = (req.query.provider || '').trim().toLowerCase()
+  const effectiveProviderName = requestedProvider && PROVIDERS[requestedProvider] ? requestedProvider : provider.name
+  
   // Для LM Studio и Mistral получаем список доступных моделей
-  let models = getModelPresets(provider.name)
-  if (provider.name === 'lmstudio' && client) {
+  let models = getModelPresets(effectiveProviderName)
+  if (effectiveProviderName === 'lmstudio') {
     try {
-      const response = await client.models.list()
+      const lmStudioClient = new OpenAI({
+        baseURL: process.env.LMSTUDIO_BASE_URL || 'http://localhost:1234/v1',
+        apiKey: 'not-needed',
+      })
+      const response = await lmStudioClient.models.list()
       const lmStudioModels = response.data.map(m => ({
         id: m.id,
         label: m.id.split('/').pop() || m.id,
@@ -163,36 +171,44 @@ app.get('/agents', async (_req, res) => {
     } catch (err) {
       console.warn('[LM Studio] Не удалось получить список моделей:', err.message)
     }
-  } else if (provider.name === 'mistral' && client) {
-    // Для Mistral динамически получаем список моделей через API
-    try {
-      const response = await client.models.list()
-      const mistralModels = response.data
-        .filter(m => m.id.includes('mistral') || m.id.includes('open-mistral') || m.id.includes('open-mixtral'))
-        .map(m => ({
-          id: m.id,
-          label: m.id.replace('mistral-', '').replace('-latest', '').toUpperCase(),
-          hint: 'Облачная модель Mistral AI'
-        }))
-      if (mistralModels.length > 0) {
-        models = mistralModels
+  } else if (effectiveProviderName === 'mistral') {
+    const apiKey = req.query.apiKey || process.env.MISTRAL_API_KEY
+    if (apiKey) {
+      try {
+        const mistralClient = new OpenAI({
+          baseURL: 'https://api.mistral.ai/v1',
+          apiKey,
+        })
+        const response = await mistralClient.models.list()
+        const mistralModels = response.data
+          .filter(m => m.id.includes('mistral') || m.id.includes('open-mistral') || m.id.includes('open-mixtral'))
+          .map(m => ({
+            id: m.id,
+            label: m.id.replace('mistral-', '').replace('-latest', '').toUpperCase(),
+            hint: 'Облачная модель Mistral AI'
+          }))
+        if (mistralModels.length > 0) {
+          models = mistralModels
+        }
+      } catch (err) {
+        console.warn('[Mistral] Не удалось получить список моделей:', err.message)
+        // Fallback на статический список
+        models = getModelPresets('mistral')
       }
-    } catch (err) {
-      console.warn('[Mistral] Не удалось получить список моделей:', err.message)
-      // Fallback на статический список
+    } else {
       models = getModelPresets('mistral')
     }
   }
   
   res.json({
-    agents: defaultAgents,
+    agents: getAgentsForProvider(effectiveProviderName),
     allAgents: getAvailableAgents(customAgents),
     customAgents,
     rounds: DEFAULT_ROUNDS,
     minRounds: MIN_ROUNDS,
     maxRounds: MAX_ROUNDS,
-    provider: provider.name,
-    model: provider.model,
+    provider: effectiveProviderName,
+    model: resolveModel(effectiveProviderName, null),
     models,
   })
 })
